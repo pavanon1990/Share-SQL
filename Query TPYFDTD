@@ -1,0 +1,11 @@
+select 
+  SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno)) as WKPAYN
+  ,CASE WHEN gps.gp_core_system = 'TLM' THEN 
+   '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
+   ELSE gps.gp_polno
+   END as WKPOLN
+  ,'' as WKPLNC
+  , to_char(gps.gp_amount, 'fm9999999.90') as WKPAMT
+  ,CASE 
+   WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
+from generatepayment.GPS_PAYMENT gps
