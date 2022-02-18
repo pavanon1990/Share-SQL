@@ -20,7 +20,7 @@ select
           case 
                  when gps.gp_core_system = 'TLM' 
                       then '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
-                      else SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno))
+                      else gps.gp_polno
           end
      END as PYWREF
     ,gps.gp_payee_name as PYWBEN
