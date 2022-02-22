@@ -1,0 +1,9 @@
+select t.CODE_SHORT_DESCRIPTION from TSCM_CODE t
+
+select t.CHQE_EXT_CHQ_NUMBER CTEB_CHQE_EXT_CHQ_NUMBER from TSCM_CHEQUE t --เลขที่เช็ค
+select t.MTRB_DATE_AUTHORISED from TSCM_MT_BATCH t --payment_ind = 1
+select t.CHQE_GP_UPLOAD_DATE from TSCM_CHEQUE t --payment_ind = -1 PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment')
+select t.MTTR_DUE_DATE from TSCM_MT_TRANSACTION t --payment_ind = -1 PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit')
+
+select t.CTEB_AMOUNT from TSCM_CLIENT_TRANS_EVENT_BRIDGE t --จำนวนเงิน
+select t.CHQE_AMOUNT from TSCM_CHEQUE t --จำนวนเงินในเช็ค 
