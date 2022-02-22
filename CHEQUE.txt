@@ -1,3 +1,6 @@
+select t.* from TSCM_ACCOUNT_LINK t
+where aclk_id = '100574946'
+
 select t.CODE_SHORT_DESCRIPTION from TSCM_CODE t
 
 select t.CHQE_EXT_CHQ_NUMBER CTEB_CHQE_EXT_CHQ_NUMBER from TSCM_CHEQUE t --เลขที่เช็ค
