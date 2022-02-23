@@ -1,0 +1,29 @@
+IF module = 'TCLM'
+--Get transaction_event_id (pay_ref_no)
+select * from data_conso.claim_transaction t
+left join data_conso.claim_payment u on u.clm_no = t.clm_no
+where t.pol_no = GPS_PAYMENT.GP_POLNO --'XXXXX0566601' 
+--Get Cheque no. (CHQE_EXT_CHQ_NUMBER)
+select a.aclk_account_number, a.aclk_id, b.actr_transaction_event_id, e.cteb_transaction_event_id, f.chqe_id, f.CHQE_EXT_CHQ_NUMBER, f.chqe_amount
+ from TSCM_ACCOUNT_link a
+left join tscm_account_transaction b on a.aclk_id = b.actr_account_id 
+--left join TSCM_TRANSACTION_EVENT c on c.TREV_ID = b.actr_transaction_event_id
+--left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = c.TREV_ID
+left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = b.actr_transaction_event_id
+left join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id
+where a.aclk_account_number = GPS_PAYMENT.GP_POLNO --'XXXXX0566601'
+and b.actr_transaction_event_id = u.pay_ref_no
+--and b.actr_transaction_event_id in (
+--'133124991',
+--'144386689',
+--'144386696',
+--'147529533',
+--'156037721'
+--)
+--Get Payment date
+????
+If GPS_PAYMENT.GP_CHQNO = f.chqe_ext_chq_number and
+GPS_PAYMENT.GP_AMOUNT = f.chqe_amount and
+GPS_PAYMENT.GP_PAIDDATE = ???? - 5430000 (แปลงเป็น ค.ศ.)
+let PLAN CODE = t.plncde
+let incurred date = t.risk_event_dte
