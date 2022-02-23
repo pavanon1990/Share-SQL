@@ -1,3 +1,4 @@
+--INSERT INTO MIG_NC_INTERFACE
 WITH viewModule as (
 select 
     CASE 
@@ -48,6 +49,7 @@ select
      ,gps.gp_payee_name as PYWBEN
      ,gps.gp_confirmdate as PYWTRD
      ,gps.gp_paiddate as PYWPYD
+     --,gps.gp_amount as PYWAMT -- split value        
      ,to_char(gps.gp_amount, 'fm9999999.90') as PYWAMT -- split value        
      ,gps.gp_paydesc as PYWCM1
      ,'' as PYWCM2       
@@ -84,7 +86,7 @@ select
      WHEN gps.gp_paymth = 'C' and gps.gp_sub_paymth = 'C' and gps.gp_lastupd_sts = 'S' 
        THEN gps.gp_lastupd_stsdate
        ELSE '0'
-     END as PYWCAD	
+     END as PYWCAD  
      ,PYWTRS as PYWTRS
      ,'' as PYWRMK 
      ,'S' as PYWRST --20
@@ -145,5 +147,6 @@ select
   (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'M' and gps.gp_lastupd_sts != 'S') ) 
   and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
 )
-select  t.pywamt,t.* from viewtable t --82640
+select  t.* from viewtable t --82640
 where PYWREF not like '%no data policy%' and PYWREF not like '%read data_conso.mapping%'
+and PYWMOD is not null
