@@ -1,0 +1,25 @@
+select 
+  CASE 
+    WHEN gps.gp_core_system = 'TLM' THEN 3||SUBSTR(gps.gp_polno,6 ,length(gps.gp_polno))
+    ELSE
+      CASE
+         WHEN length(gps.gp_polno) = 8 THEN ''
+         WHEN length(gps.gp_polno) = 9 THEN 2||SUBSTR(gps.gp_polno,2 ,length(gps.gp_polno))
+      END
+  END as WKREFN
+  ,GPS.GP_POLNO as WKORGN 
+  ,'' as WKROLE ------- 
+  ,'NC' as WKSRCS
+  ,'' as WKPSTS                                                                                                                             ------- 5
+  ,( select t.agcde2 from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKAGNT ------- เอา Replace ออกด้วย
+  ,( select t.PLNCDE from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKPLNC ------- เอา Replace ออกด้วย
+  ,'' as WKCNUM ------- select t.clientid,t.* from data_conso.cclient_pol t where t.POLICYNUMBER = '100001016717'
+  ,'P' as WKCTYP
+  ,(select t.Idno from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKIDNO  ------- เอา Replace ออกด้วย               ------- 10
+  ,(select t.ttlnme from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKTTLN ------- เอา Replace ออกด้วย
+  ,(select t.INSFST from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) asWKFSNM ------- เอา Replace ออกด้วย
+  ,'' as WKMDNM
+  ,(select t.INSLST from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKLSNM ------- เอา Replace ออกด้วย
+
+from gps_payment gps
+where gps.gp_core_system = 'TLM'
