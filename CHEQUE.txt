@@ -13,3 +13,28 @@ select CTEB.CTEB_CHEQUE_ID,CTEB.CTEB_AMOUNT,CTEB.CTEB_PAYMENT_IND from TSCM_CLIE
 select CHQE.CHQE_ID,CHQE.CHQE_AMOUNT from TSCM_CHEQUE CHQE --จำนวนเงินในเช็ค 
 
 select TREV_EFFECTIVE_DATE from TSCM_TRANSACTION_EVENT -- IncureDate
+
+============================================================================================
+select * from TSCM_ACCOUNT_link a where
+aclk_account_number = '100000566601'
+select * from tscm_account_transaction b where
+actr_account_id = '100574946';
+
+select * from TSCM_TRANSACTION_EVENT c where
+c.TREV_ID = b.actr_transaction_event_id
+--TREV_EFFECTIVE_DATE
+
+select * from TSCM_TRANSACTION_TYPE d where
+d.TTYP_ID = c.TREV_TRANSACTION_TYPE_ID
+-- filter with GP_PAYDESC
+
+select * from TSCM_CLIENT_TRANS_EVENT_BRIDGE e where
+e.CTEB_TRANSACTION_EVENT_ID = c.TREV_ID
+
+--select * from TSCM_CLIENT
+--get client name
+
+--select distinct(ttyp_description) from TSCM_TRANSACTION_TYPE
+
+select CHQE_EXT_CHQ_NUMBER, chqe_amount from TSCM_CHEQUE f where
+f.chqe_id = e.cteb_cheque_id
