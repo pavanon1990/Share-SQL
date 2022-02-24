@@ -26,6 +26,7 @@ select
       and TRANS_S01 = gps.GP_PAYMTH
       and TRANS_S02 = gps.GP_SUB_PAYMTH
       and TRANS_S03 = gps.gp_lastupd_sts) as PYWTRS
+      ,gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts as checkStatus
      ,gps.*
      from GPS_PAYMENT gps
 )
