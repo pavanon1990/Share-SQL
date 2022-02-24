@@ -1,3 +1,4 @@
+--insert into mig_nc_tpyfilnc
 select a.WKREFN
       , a.WKORGN
       , a.WKROLE
@@ -37,26 +38,22 @@ select
     ,clnt_pol.relationship_type as WKCNUM ------- select t.clientid,t.* from data_conso.cclient_pol t where t.POLICYNUMBER = '100001016717'
     ,'P' as WKCTYP
     ,(select t.Idno from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKIDNO  ------- เอา Replace ออกด้วย               ------- 10
-    ,(select t.ttlnme from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKTTLN ------- เอา Replace ออกด้วย
-    ,(select t.INSFST from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKFSNM ------- เอา Replace ออกด้วย
+    ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKTTLN ------- เอา Replace ออกด้วย
+    ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKFSNM ------- เอา Replace ออกด้วย
     ,'' as WKMDNM
-    ,(select t.INSLST from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKLSNM ------- เอา Replace ออกด้วย
-
+    ,(select substr(t.INSLST,0,25) from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKLSNM ------- เอา Replace ออกด้วย
     ,clnt_pol.clientaddressid
 
   from gps_payment gps
   left join data_conso.cclient_pol clnt_pol on clnt_pol.POLICYNUMBER = REPLACE(gps.gp_polno,'XXXXX','10000') ------- เอา Replace ออกด้วย
   where gps.gp_core_system = 'TLM'
   and gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
-  and gps.gp_polno not in (
-  select 
-    distinct gps.gp_polno
-
-    from gps_payment gps
-    left join data_conso.cclient_pol clnt_pol on clnt_pol.POLICYNUMBER = REPLACE(gps.gp_polno,'XXXXX','10000') ------- เอา Replace ออกด้วย
-    where gps.gp_core_system = 'TLM'
-    and gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
-    and clnt_pol.relationship_type = 'DESA'
-  )   
-  
+  and not EXISTS(
+      select * from gps_payment subgps
+      left join data_conso.cclient_pol clnt_pol on clnt_pol.POLICYNUMBER = REPLACE(subgps.gp_polno,'XXXXX','10000') ------- เอา Replace ออกด้วย
+      where subgps.gp_core_system = 'TLM'
+      and subgps.gp_paymth||subgps.gp_sub_paymth||subgps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+      and clnt_pol.relationship_type = 'DESA' and gps.gp_polno = subgps.gp_polno
+  )
 )a
+
