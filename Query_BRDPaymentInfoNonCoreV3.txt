@@ -137,15 +137,7 @@ select
       ,'Y' as PYWORG
       ,'' as PYWORN
   from viewModule gps
-  where
-  ((gps.gp_paymth != 'C' and gps.gp_sub_paymth != 'C' and gps.gp_lastupd_sts != 'W') or
-  (gps.gp_paymth != 'D' and gps.gp_sub_paymth != 'D' and gps.gp_lastupd_sts != 'P') or
-  (gps.gp_paymth != 'D' and gps.gp_sub_paymth != 'D' and gps.gp_lastupd_sts != 'W') or
-  (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'A' and gps.gp_lastupd_sts != 'S') or
-  (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'B' and gps.gp_lastupd_sts != 'S') or
-  (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'C' and gps.gp_lastupd_sts != 'S') or
-  (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'M' and gps.gp_lastupd_sts != 'W') or
-  (gps.gp_paymth != 'M' and gps.gp_sub_paymth != 'M' and gps.gp_lastupd_sts != 'S') ) 
+  where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
   and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
 )
 select  t.* from viewtable t --82640
