@@ -160,5 +160,5 @@ select
   from dataModels gps
 )
 --select * from dataModels
-select * from Interface  where PYWCHS = 'CANCEL' and pywref = '30991562'
+select * from Interface  --where PYWCHS = 'CANCEL' and pywref = '30991562'
 --select * from TPYFDTD
