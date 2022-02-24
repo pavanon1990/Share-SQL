@@ -33,8 +33,9 @@ select
 )
 , dataModels as 
 (
-  select gps.*,gps.checkStatus as inscop  from viewModule gps
+  select gps.*  from viewModule gps
   where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+  and gps.Modulecode is not null
   and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
 )
 , Interface as 
@@ -123,7 +124,7 @@ select
      ,'' as PYWRQN     
      ,CASE
         WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'S'
-        THEN gps.gp_lastupd_stsdate
+             THEN gps.gp_lastupd_stsdate
         ELSE ''
       END as PYWSPD --40
      ,'SCB' as PYWBPN
@@ -158,6 +159,6 @@ select
    WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
   from dataModels gps
 )
-select * from dataModels
---select * from Interface  
+--select * from dataModels
+select * from Interface  where PYWCHS = 'CANCEL' and pywref = '30991562'
 --select * from TPYFDTD
