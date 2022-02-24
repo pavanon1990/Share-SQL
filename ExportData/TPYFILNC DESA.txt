@@ -1,4 +1,4 @@
-select a.WKREFN
+select a.WKREFN  
       , a.WKORGN
       , a.WKROLE
       , a.WKSRCS
@@ -17,7 +17,8 @@ select a.WKREFN
        ,CASE WHEN a.wkcnum = 'DESA' THEN clnt_add.sub_district ELSE '' END as WKADD3
        ,CASE WHEN a.wkcnum = 'DESA' THEN clnt_add.district ELSE '' END as WKADD4
        ,CASE WHEN a.wkcnum = 'DESA' THEN clnt_add.province ELSE '' END as WKPROV
-       ,CASE WHEN a.wkcnum = 'DESA' THEN clnt_add.postcode ELSE '' END as WKZIPC from(
+       ,CASE WHEN a.wkcnum = 'DESA' THEN clnt_add.postcode ELSE '' END as WKZIPC 
+       from(
 select 
     CASE 
       WHEN gps.gp_core_system = 'TLM' THEN 3||SUBSTR(gps.gp_polno,6 ,length(gps.gp_polno))
@@ -48,15 +49,15 @@ select
 
   where gps.gp_core_system = 'TLM'
   and gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
-  and gps.gp_polno in (
+  and EXISTS (
   select 
-    distinct gps.gp_polno
-
-    from gps_payment gps
-    left join data_conso.cclient_pol clnt_pol on clnt_pol.POLICYNUMBER = REPLACE(gps.gp_polno,'XXXXX','10000') ------- เอา Replace ออกด้วย
-    where gps.gp_core_system = 'TLM'
-    and gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+    *
+    from gps_payment sub_gps
+    left join data_conso.cclient_pol clnt_pol on clnt_pol.POLICYNUMBER = REPLACE(sub_gps.gp_polno,'XXXXX','10000') ------- เอา Replace ออกด้วย
+    where sub_gps.gp_core_system = 'TLM'
+    and sub_gps.gp_paymth||sub_gps.gp_sub_paymth||sub_gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
     and clnt_pol.relationship_type = 'DESA'
+    and sub_gps.gp_polno = gps.gp_polno
 )
 )a
 left join data_conso.clientaddress clnt_add on a.clientaddressid = clnt_add.clientaddressid
