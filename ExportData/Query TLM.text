@@ -1,4 +1,3 @@
-insert 
 WITH viewModule as (
 select 
     CASE 
