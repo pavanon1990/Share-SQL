@@ -1,238 +1,203 @@
- select * from (
- SELECT distinct
-  null appl_id,
-  CASE
-    WHEN trim(CLNT.CLNT_MAILING_NAME) IS NOT NULL THEN CLNT.CLNT_MAILING_NAME
-    ELSE CLNT.CLNT_SURNAME
-  END CTEB_CLNT_MAILING_NAME,
-  /*CASE WHEN RCPT.RCPT_ID IS NOT NULL THEN PEP_PKG.CONVERT_CURRENCY_TH(APPL.APPL_AMOUNT) || 'A'
-       ELSE PEP_PKG.CONVERT_CURRENCY_TH(CTEB.CTEB_AMOUNT) || 'B'
-  END CTEB_AMOUNT,*/
-  --PEP_PKG.CONVERT_CURRENCY_TH(APPL.APPL_AMOUNT) APPL_AMOUNT,
-  PEP_PKG.CONVERT_CURRENCY_TH(CTEB.CTEB_AMOUNT) CTEB_AMOUNT,
-  --PEP_PKG.CONVERT_CURRENCY_TH(CTEB.CTEB_AMOUNT) CTEB_AMOUNT,
-  CTEB.CTEB_PERCENTAGE,
-  PAYMENT_CODE.CODE_SHORT_DESCRIPTION CTEB_PAYMT_METHOD_CODE_ID,
-  CASE
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Company cheque' THEN cteb.cteb_cheque_payee_name
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Direct Debit' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Credit card' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Direct credit' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Bank draft' THEN cteb.cteb_cheque_payee_name
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Cheque payment' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Salary deduction' THEN cteb.cteb_bank_account
-       ELSE PAYMENT_CODE.CODE_SHORT_DESCRIPTION
-  END CTEB_DESCRIPTION,
-  --MTRB.MTRB_BATCH_NUMBER CTEB_NUMBER,
-/*  CASE
-    WHEN CHQE.CHQE_ID IS NOT NULL THEN TO_CHAR(CHQE.CHQE_EXT_CHQ_NUMBER)
-    WHEN MTRB.MTRB_ID IS NOT NULL THEN TO_CHAR(MTRB.MTRB_BATCH_NUMBER)
-  END CTEB_NUMBER,*/
-  CASE
-    WHEN cteb_payment_ind = 1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION IN ('Direct credit','Direct Debit','Credit card','Direct debit payment','Credit card payment') THEN TO_CHAR(MTRB.MTRB_BATCH_NUMBER)
-        --ELSE TO_CHAR(RCPT.RCPT_RECEIPT_NUMBER)
-      END
-    WHEN cteb_payment_ind = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR(CHQE.CHQE_CHEQUE_NUMBER)
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit payment','Cash payment') THEN TO_CHAR(mtrb.mtrb_batch_number)
-      END
-  END CTEB_NUMBER,
-  CTEB.CTEB_PAYMENT_IND,
-  CHQE.CHQE_EXT_CHQ_NUMBER CTEB_CHQE_EXT_CHQ_NUMBER,
-  CHQESTS_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_EXT_STATUS_CODE_ID, -- สถานะเช็ค
-  --CHQE_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_STATUS_CODE_ID,--สถานะ
-  --MTTRN_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_STATUS_CODE_ID,--สถานะ
-  /*CASE
-    WHEN CHQE.CHQE_ID IS NOT NULL THEN CHQE_CODE.CODE_SHORT_DESCRIPTION
-    WHEN MTTR.MTTR_ID IS NOT NULL THEN MTTRN_CODE.CODE_SHORT_DESCRIPTION
-  END CTEB_CHQE_STATUS_CODE_ID,*/
-  CASE
-    WHEN CTEB.CTEB_PAYMENT_IND = 1 THEN
-      CASE
-        WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+WITH viewModule as (
+select 
+    CASE 
+    WHEN gps.gp_core_system = 'TLM' 
+       THEN
+         ( select trans_value01 from MIG_T_MAPPING t 
+            where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+            and TRANS_S01 = gps.gp_core_system
+            and gps.gp_paydesc  like '%'||trans_s02||'%'
+            and trans_s03 is null ) 
+        ELSE
+          (select trans_value01 from MIG_T_MAPPING t 
+              where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+              and TRANS_S01 = gps.gp_core_system
+              and TRANS_S02 = substr(gps.gp_transref,1,3)
+              and trans_s03 is null) 
+         END as ModuleCode
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWCHS
+     ,(select trans_value02 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWTRS
+      ,gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts as checkStatus
+     ,gps.*
+     from GPS_PAYMENT gps
+)
+, dataIncureDate as (
+    select a.aclk_account_number, a.aclk_id, b.actr_transaction_event_id, e.cteb_transaction_event_id, f.chqe_id, f.CHQE_EXT_CHQ_NUMBER, f.chqe_amount, 
+    CASE
+        WHEN e.CTEB_PAYMENT_IND = 1 THEN
           CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct Debit') THEN MTTR_CODE.CODE_SHORT_DESCRIPTION
-            --WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Cash payment') THEN NVL(TSPT.TSPT_TRANSLATION,APPL_CODE.CODE_SHORT_DESCRIPTION)
+            WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+              CASE
+                WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN   TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' )
+              END
           END
-        /*ELSE --WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Prem From Susp' THEN EIDT
+        WHEN e.CTEB_PAYMENT_IND = -1 THEN
           CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Cash payment') THEN NVL(TSPT.TSPT_TRANSLATION,APPL_CODE.CODE_SHORT_DESCRIPTION)
-          END*/
-
-      END
-    WHEN CTEB.CTEB_PAYMENT_IND = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN MTTR_CODE.CODE_SHORT_DESCRIPTION
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN CHQE_CODE.CODE_SHORT_DESCRIPTION
-      END
-  END CTEB_CHQE_STATUS_CODE_ID,
-  PRINT_CODE.CODE_SHORT_DESCRIPTION CTEB_CHEQUE_PRINTER_CODE_ID, --'' "สถานที่พิ",
-  CASE
-    WHEN CTEB.CTEB_PAYMENT_IND = 1 THEN
-      CASE
-        WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
-          CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTRB.MTRB_DATE_AUTHORISED)-- PEP_PKG.CONVERT_DATE(MTRB.MTRB_DATE_AUTHORISED)
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR( f.CHQE_DATE_PRINTED, 'YYYYMMDD' )
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' ) 
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN TO_CHAR( MTTR.MTTR_DUE_DATE, 'YYYYMMDD' ) 
           END
-      END
-    WHEN CTEB.CTEB_PAYMENT_IND = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN PEP_PKG.CONVERT_DATE(CHQE.CHQE_DATE_PRINTED)
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTRB.MTRB_DATE_AUTHORISED) --PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE)
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE) --PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE)
-      END
-  END CTEB_DATE_PAID,
-/*  CASE
-    WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN PEP_PKG.CONVERT_DATE(CHQE.CHQE_GP_UPLOAD_DATE)
-    WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE)
-  END CTEB_DATE_PAID,*/
-  --PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE) CTEB_DATE_PAID, --'' "วันที่ชำระ",
-  PEP_PKG.CONVERT_CURRENCY_TH(CHQE.CHQE_AMOUNT) CTEB_CHQE_AMOUNT
-  FROM TSCM_ACCOUNT_LINK ACLK
-  INNER JOIN TSCM_ACCOUNT_TRANSACTION ACTR ON ACTR.ACTR_ACCOUNT_ID = ACLK.ACLK_ID
-  INNER JOIN TSCM_TRANSACTION_EVENT TREV ON TREV.TREV_ID = ACTR.ACTR_TRANSACTION_EVENT_ID
-  INNER JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = TREV.TREV_TRANSACTION_TYPE_ID
-  INNER JOIN TSCM_CLIENT_TRANS_EVENT_BRIDGE CTEB ON CTEB.CTEB_TRANSACTION_EVENT_ID = TREV.TREV_ID
-  INNER JOIN TSCM_CLIENT CLNT ON CLNT.CLNT_ID = CTEB.CTEB_CLIENT_ID
-  --LEFT JOIN tscm_application APPL ON NVL(APPL.APPL_MTS_ROW_ID,APPL.APPL_CHEQUE_ID)  = NVL(CTEB.CTEB_MTS_ROW_ID,CTEB.CTEB_CHEQUE_ID)
-  --LEFT JOIN tscm_application APPL ON APPL.APPL_TRANSACTION_EVENT_ID = TREV.TREV_ID
-  --LEFT JOIN tscm_receipt RCPT ON RCPT.RCPT_ID = APPL.appl_receipt_id
-  LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = CTEB.CTEB_MTS_ROW_ID
-  LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
-  LEFT JOIN TSCM_MT_BATCH_TYPE MTBT ON MTBT.MTBT_ID = MTRB.MTRB_BATCH_TYPE_ID
-  LEFT JOIN TSCM_CHEQUE CHQE ON CHQE.CHQE_ID = CTEB.CTEB_CHEQUE_ID
-  LEFT JOIN TSCM_CHEQUE_BATCH CQBT ON CQBT.CQBT_ID = CHQE.CHQE_CHEQUE_BATCH_ID
-  LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = CTEB.CTEB_PAYMT_METHOD_CODE_ID
-  LEFT JOIN TSCM_CODE CHQE_CODE ON CHQE_CODE.CODE_ID = CHQE.CHQE_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE CHQESTS_CODE ON CHQESTS_CODE.CODE_ID = CHQE.CHQE_EXT_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE MTTR_CODE ON MTTR_CODE.CODE_ID = MTTR.MTTR_TRANS_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE PRINT_CODE ON PRINT_CODE.CODE_ID = CTEB.CTEB_CHEQUE_PRINTER_CODE_ID
-  --LEFT JOIN TSCM_CODE APPL_CODE ON APPL_CODE.CODE_ID = APPL.APPL_STATUS_CODE_ID
-  --LEFT JOIN TSCM_PHRASE_TRANSLATION TSPT ON TSPT.TSPT_PHRASE = APPL_CODE.CODE_SHORT_DESCRIPTION
-  WHERE ACLK.ACLK_ID = P_ACLK AND TREV.TREV_ID = P_TREV_ID
-    AND CTEB.CTEB_PAYMENT_IND = -1
-    AND CTEB.CTEB_PAYMT_METHOD_CODE_ID IS NOT NULL
-
-
-  UNION ALL
-
-  SELECT distinct
-  appl.appl_id,
-  CASE
-    WHEN trim(CLNT.CLNT_MAILING_NAME) IS NOT NULL THEN CLNT.CLNT_MAILING_NAME
-    ELSE CLNT.CLNT_SURNAME
-  END CTEB_CLNT_MAILING_NAME,
-  /*CASE WHEN RCPT.RCPT_ID IS NOT NULL THEN PEP_PKG.CONVERT_CURRENCY_TH(APPL.APPL_AMOUNT) || 'A'
-       ELSE PEP_PKG.CONVERT_CURRENCY_TH(CTEB.CTEB_AMOUNT) || 'B'
-  END CTEB_AMOUNT,*/
-  --PEP_PKG.CONVERT_CURRENCY_TH(APPL.APPL_AMOUNT) APPL_AMOUNT,
-  --PEP_PKG.CONVERT_CURRENCY_TH(appl.appl_amount) CTEB_AMOUNT,
-  CASE WHEN appl.appl_id IS NOT NULL THEN PEP_PKG.CONVERT_CURRENCY_TH(APPL.APPL_AMOUNT)
-       ELSE PEP_PKG.CONVERT_CURRENCY_TH(CTEB.CTEB_AMOUNT)
-  END CTEB_AMOUNT,
-  CTEB.CTEB_PERCENTAGE,
-  PAYMENT_CODE.CODE_SHORT_DESCRIPTION CTEB_PAYMT_METHOD_CODE_ID,
-  CASE
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Company cheque' THEN cteb.cteb_cheque_payee_name
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Direct Debit' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Credit card' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Direct credit' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Bank draft' THEN cteb.cteb_cheque_payee_name
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Cheque payment' THEN cteb.cteb_bank_account
-       WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION = 'Salary deduction' THEN cteb.cteb_bank_account
-       ELSE PAYMENT_CODE.CODE_SHORT_DESCRIPTION
-  END CTEB_DESCRIPTION,
-  --MTRB.MTRB_BATCH_NUMBER CTEB_NUMBER,
-/*  CASE
-    WHEN CHQE.CHQE_ID IS NOT NULL THEN TO_CHAR(CHQE.CHQE_EXT_CHQ_NUMBER)
-    WHEN MTRB.MTRB_ID IS NOT NULL THEN TO_CHAR(MTRB.MTRB_BATCH_NUMBER)
-  END CTEB_NUMBER,*/
-  CASE
-    WHEN cteb_payment_ind = 1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION IN ('Direct credit','Direct Debit','Credit card','Direct debit payment','Credit card payment') THEN TO_CHAR(MTRB.MTRB_BATCH_NUMBER)
-        ELSE TO_CHAR(RCPT.RCPT_RECEIPT_NUMBER)
-      END
-    WHEN cteb_payment_ind = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR(CHQE.CHQE_CHEQUE_NUMBER)
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit payment','Cash payment') THEN TO_CHAR(mtrb.mtrb_batch_number)
-      END
-  END CTEB_NUMBER,
-  CTEB.CTEB_PAYMENT_IND,
-  CHQE.CHQE_EXT_CHQ_NUMBER CTEB_CHQE_EXT_CHQ_NUMBER,
-  CHQESTS_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_EXT_STATUS_CODE_ID, -- สถานะเช็ค
-  --CHQE_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_STATUS_CODE_ID,--สถานะ
-  --MTTRN_CODE.CODE_SHORT_DESCRIPTION CTEB_CHQE_STATUS_CODE_ID,--สถานะ
-  /*CASE
-    WHEN CHQE.CHQE_ID IS NOT NULL THEN CHQE_CODE.CODE_SHORT_DESCRIPTION
-    WHEN MTTR.MTTR_ID IS NOT NULL THEN MTTRN_CODE.CODE_SHORT_DESCRIPTION
-  END CTEB_CHQE_STATUS_CODE_ID,*/
-  CASE
-    WHEN CTEB.CTEB_PAYMENT_IND = 1 THEN
-      CASE
-        WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
-          CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct Debit') THEN MTTR_CODE.CODE_SHORT_DESCRIPTION
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Cash payment') THEN NVL(TSPT.TSPT_TRANSLATION,APPL_CODE.CODE_SHORT_DESCRIPTION)
-          END
-        ELSE --WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Prem From Susp' THEN EIDT
-          CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Cash payment') THEN NVL(TSPT.TSPT_TRANSLATION,APPL_CODE.CODE_SHORT_DESCRIPTION)
-          END
-      END
-    WHEN CTEB.CTEB_PAYMENT_IND = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN MTTR_CODE.CODE_SHORT_DESCRIPTION
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN CHQE_CODE.CODE_SHORT_DESCRIPTION
-      END
-  END CTEB_CHQE_STATUS_CODE_ID,
-  PRINT_CODE.CODE_SHORT_DESCRIPTION CTEB_CHEQUE_PRINTER_CODE_ID, --'' "สถานที่พิ",
-  CASE
-    WHEN CTEB.CTEB_PAYMENT_IND = 1 THEN
-      CASE
-        WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
-          CASE
-            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTRB.MTRB_DATE_AUTHORISED)-- PEP_PKG.CONVERT_DATE(MTRB.MTRB_DATE_AUTHORISED)
-          END
-      END
-    WHEN CTEB.CTEB_PAYMENT_IND = -1 THEN
-      CASE
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN PEP_PKG.CONVERT_DATE(CHQE.CHQE_GP_UPLOAD_DATE)
-        WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE)
-      END
-  END CTEB_DATE_PAID,
-/*  CASE
-    WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN PEP_PKG.CONVERT_DATE(CHQE.CHQE_GP_UPLOAD_DATE)
-    WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE)
-  END CTEB_DATE_PAID,*/
-  --PEP_PKG.CONVERT_DATE(MTTR.MTTR_DUE_DATE) CTEB_DATE_PAID, --'' "วันที่ชำระ",
-  PEP_PKG.CONVERT_CURRENCY_TH(CHQE.CHQE_AMOUNT) CTEB_CHQE_AMOUNT
-  FROM TSCM_ACCOUNT_LINK ACLK
-  INNER JOIN TSCM_ACCOUNT_TRANSACTION ACTR ON ACTR.ACTR_ACCOUNT_ID = ACLK.ACLK_ID
-  INNER JOIN TSCM_TRANSACTION_EVENT TREV ON TREV.TREV_ID = ACTR.ACTR_TRANSACTION_EVENT_ID
-  INNER JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = TREV.TREV_TRANSACTION_TYPE_ID
-  INNER JOIN TSCM_CLIENT_TRANS_EVENT_BRIDGE CTEB ON CTEB.CTEB_TRANSACTION_EVENT_ID = TREV.TREV_ID
-  INNER JOIN TSCM_CLIENT CLNT ON CLNT.CLNT_ID = CTEB.CTEB_CLIENT_ID
-  --LEFT JOIN tscm_application APPL ON NVL(APPL.APPL_MTS_ROW_ID,APPL.APPL_CHEQUE_ID)  = NVL(CTEB.CTEB_MTS_ROW_ID,CTEB.CTEB_CHEQUE_ID)
-  LEFT JOIN tscm_application APPL ON APPL.APPL_TRANSACTION_EVENT_ID = TREV.TREV_ID
-  LEFT JOIN tscm_receipt RCPT ON RCPT.RCPT_ID = APPL.appl_receipt_id
-  LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = CTEB.CTEB_MTS_ROW_ID
-  LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
-  LEFT JOIN TSCM_MT_BATCH_TYPE MTBT ON MTBT.MTBT_ID = MTRB.MTRB_BATCH_TYPE_ID
-  LEFT JOIN TSCM_CHEQUE CHQE ON CHQE.CHQE_ID = CTEB.CTEB_CHEQUE_ID
-  LEFT JOIN TSCM_CHEQUE_BATCH CQBT ON CQBT.CQBT_ID = CHQE.CHQE_CHEQUE_BATCH_ID
-  LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = CTEB.CTEB_PAYMT_METHOD_CODE_ID
-  LEFT JOIN TSCM_CODE CHQE_CODE ON CHQE_CODE.CODE_ID = CHQE.CHQE_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE CHQESTS_CODE ON CHQESTS_CODE.CODE_ID = CHQE.CHQE_EXT_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE MTTR_CODE ON MTTR_CODE.CODE_ID = MTTR.MTTR_TRANS_STATUS_CODE_ID
-  LEFT JOIN TSCM_CODE PRINT_CODE ON PRINT_CODE.CODE_ID = CTEB.CTEB_CHEQUE_PRINTER_CODE_ID
-  LEFT JOIN TSCM_CODE APPL_CODE ON APPL_CODE.CODE_ID = APPL.APPL_STATUS_CODE_ID
-  LEFT JOIN TSCM_PHRASE_TRANSLATION TSPT ON TSPT.TSPT_PHRASE = APPL_CODE.CODE_SHORT_DESCRIPTION
-  WHERE ACLK.ACLK_ID = P_ACLK AND TREV.TREV_ID = P_TREV_ID
-    AND CTEB.CTEB_PAYMENT_IND = 1
-    AND CTEB.CTEB_PAYMT_METHOD_CODE_ID IS NOT NULL
-    )
+    END CTEB_DATE_PAID
+    ,TO_CHAR(c.trev_effective_date, 'YYYYMMDD' ) as trev_effective_date
+    from TSCM_ACCOUNT_link a
+    left join tscm_account_transaction b on a.aclk_id = b.actr_account_id 
+    left join TSCM_TRANSACTION_EVENT c on c.TREV_ID = b.actr_transaction_event_id
+    INNER JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = c.TREV_TRANSACTION_TYPE_ID
+    left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = b.actr_transaction_event_id
+    LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
+    LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
+    left join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id
+    LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
+)
+, dataModels as 
+(
+  select gps.*,tba.trev_effective_date
+  
+  from viewModule gps
+  left join dataIncureDate tba on replace(gps.gp_polno,'XXXXX','10000') = tba.aclk_account_number
+  and gps.gp_chqno = tba.CHQE_EXT_CHQ_NUMBER and gps.gp_amount = tba.chqe_amount 
+  and gps.gp_PAIDDATE = tba.CTEB_DATE_PAID
+  where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+  and gps.Modulecode is not null
+  and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
+)
+, Interface as 
+(
+  select 
+     CASE 
+          WHEN ModuleCode = 'TCLM' and (gps.gp_payee_name like '%โรงพยาบาล%' or gps.gp_payee_name like '%ร.พ.%') 
+          THEN SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno))
+     ELSE
+          case 
+             when gps.gp_core_system = 'TLM'
+                  then '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
+             when length(gps.gp_polno) > 8
+               then 'read data_conso.mapping'
+             when length(gps.gp_polno) = 9
+               then 2 || SUBSTR(gps.gp_polno,2,LENGTH(gps.gp_polno))
+             else gps.gp_polno  ||'no data policy ' ||  gps.gp_custrefno 
+          end
+     END as PYWREF
+     ,gps.gp_payee_name as PYWBEN
+     ,gps.gp_confirmdate as PYWTRD
+     ,gps.gp_paiddate as PYWPYD
+     ,gps.gp_amount as PYWAMT -- split value        
+     --,to_char(gps.gp_amount, 'fm9999999.90') as PYWAMT -- split value        
+     ,gps.gp_paydesc as PYWCM1
+     ,'' as PYWCM2       
+     ,ModuleCode as PYWMOD
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C02' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and trans_s03 is null) as PYWPYT
+     ,CASE
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+           THEN ''
+         ELSE gps.GP_BNKCODE
+      END as PYWBNK -- 10
+     ,CASE
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+           THEN ''
+         ELSE gps.GP_PAYEE_BNKACCNO
+       END as PYWACT
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and trans_s03 is null) as PYWTYP
+     ,CASE 
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+         THEN gps.gp_chqno
+         ELSE ''
+      END as PYWCHQ
+     ,PYWCHS as PYWCHS
+     ,'0' as PYWCLR --15
+     ,'0' as PYWSLD   
+     ,CASE 
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'R' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'D' and gp_sub_paymth = 'D' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        ELSE '0'
+     END as PYWCAD  
+     ,PYWTRS as PYWTRS
+     ,'' as PYWRMK 
+     ,'S' as PYWRST --20
+     ,gps.gp_bnksacc_no as PYWDBA
+     ,'' as PYWCBA
+     ,'' as PYWUPS
+     ,'' as PYWOIC
+     ,'' as PYWMON --25
+     ,CASE
+         WHEN PYWCHS = 'REJECT' and PYWTRS = 'SUCCESS'
+         THEN '2'
+         ELSE '' 
+     END as PYWUPB
+     ,'' as PYWREK
+     ,'MIGNCUSR' as PYWCRU
+     ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWCRD 
+     ,'0' as PYWCRT --30
+     ,'MIGNCUSR' as PYWLMU 
+     ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWLMD
+     ,'0' as PYWLMT
+     ,'0' as PYWRPD
+     ,'0' as PYWRKD
+     ,'0' as PYWOCD
+     ,'' as PYWNAC
+     ,'' as PYWNCQ
+     ,'' as PYWRQN     
+     ,CASE
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'R' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'D' and gp_sub_paymth = 'D' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        ELSE ''
+      END as PYWSPD --40
+     ,'SCB' as PYWBPN
+     ,'NC' as PYWSRC
+     ,'N'||gps.gp_custrefno as PYWPYN
+     ,'' as PYWCHL
+     ,'' as PYWRPY
+     ,gps.gp_exptobank_filenme as PYWFRF
+     ,'scblife' as PYWCID
+     ,'' as PYWBRF
+     ,gps.trev_effective_date as PYWICD -- Wait logic incurred date
+     ,(select trans_value02 from MIG_T_MAPPING t 
+          where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
+          and TRANS_S01 = gps.GP_PAYMTH
+          and TRANS_S02 = gps.GP_SUB_PAYMTH
+          and TRANS_S03 is null
+      ) as PYWSTYP --50
+      ,'Y' as PYWORG
+      ,'' as PYWORN
+  from dataModels gps
+)
+, TPYFDTD as (
+  select
+  SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno)) as WKPAYN
+  ,CASE WHEN gps.gp_core_system = 'TLM' THEN 
+   '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
+   ELSE gps.gp_polno||'DDD'
+   END as WKPOLN
+  ,'' as WKPLNC
+  , to_char(gps.gp_amount, 'fm9999999.90') as WKPAMT
+  ,CASE 
+   WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
+  from dataModels gps
+)
+--select * from dataModels
+select * from Interface  --where PYWCHS = 'CANCEL' and pywref = '30991562'
+--select * from TPYFDTD
