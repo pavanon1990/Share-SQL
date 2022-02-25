@@ -1,3 +1,4 @@
+insert 
 WITH viewModule as (
 select 
     CASE 
@@ -29,9 +30,42 @@ select
      ,gps.*
      from GPS_PAYMENT gps
 )
+, dataIncureDate as (
+    select a.aclk_account_number, a.aclk_id, b.actr_transaction_event_id, e.cteb_transaction_event_id, f.chqe_id, f.CHQE_EXT_CHQ_NUMBER, f.chqe_amount, 
+    CASE
+        WHEN e.CTEB_PAYMENT_IND = 1 THEN
+          CASE
+            WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+              CASE
+                WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN   TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' )
+              END
+          END
+        WHEN e.CTEB_PAYMENT_IND = -1 THEN
+          CASE
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR( f.CHQE_DATE_PRINTED, 'YYYYMMDD' )
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' ) 
+            WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN TO_CHAR( MTTR.MTTR_DUE_DATE, 'YYYYMMDD' ) 
+          END
+    END CTEB_DATE_PAID
+    ,TO_CHAR(c.trev_effective_date, 'YYYYMMDD' ) as trev_effective_date
+    from TSCM_ACCOUNT_link a
+    left join tscm_account_transaction b on a.aclk_id = b.actr_account_id 
+    left join TSCM_TRANSACTION_EVENT c on c.TREV_ID = b.actr_transaction_event_id
+    INNER JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = c.TREV_TRANSACTION_TYPE_ID
+    left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = b.actr_transaction_event_id
+    LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
+    LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
+    left join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id
+    LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
+)
 , dataModels as 
 (
-  select gps.*  from viewModule gps
+  select gps.*,tba.trev_effective_date
+  
+  from viewModule gps
+  left join dataIncureDate tba on replace(gps.gp_polno,'XXXXX','10000') = tba.aclk_account_number
+  and gps.gp_chqno = tba.CHQE_EXT_CHQ_NUMBER and gps.gp_amount = tba.chqe_amount 
+  and gps.gp_PAIDDATE = tba.CTEB_DATE_PAID
   where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
   and gps.Modulecode is not null
   and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
@@ -141,7 +175,7 @@ select
      ,gps.gp_exptobank_filenme as PYWFRF
      ,'scblife' as PYWCID
      ,'' as PYWBRF
-     ,'' as PYWICD -- Wait logic incurred date
+     ,gps.trev_effective_date as PYWICD -- Wait logic incurred date
      ,(select trans_value02 from MIG_T_MAPPING t 
           where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
           and TRANS_S01 = gps.GP_PAYMTH
