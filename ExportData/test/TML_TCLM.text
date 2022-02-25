@@ -1,0 +1,80 @@
+WITH viewModule as (
+select 
+    CASE 
+    WHEN gps.gp_core_system = 'TLM' 
+       THEN
+         ( select trans_value01 from MIG_T_MAPPING t 
+            where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+            and TRANS_S01 = gps.gp_core_system
+            and gps.gp_paydesc  like '%'||trans_s02||'%'
+            and trans_s03 is null ) 
+        ELSE
+          (select trans_value01 from MIG_T_MAPPING t 
+              where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+              and TRANS_S01 = gps.gp_core_system
+              and TRANS_S02 = substr(gps.gp_transref,1,3)
+              and trans_s03 is null) 
+         END as ModuleCode
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWCHS
+     ,(select trans_value02 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWTRS
+      --,f.chqe_id, f.CHQE_EXT_CHQ_NUMBER, f.chqe_amount
+      --,c.trev_effective_date
+      ,t.plncde
+     ,gps.*
+     --,gps.gp_polno,gps.gp_chqno,gps.gp_amount,gps.gp_paiddate
+     ,t.clm_no
+     --,b.actr_transaction_event_id
+     from GPS_PAYMENT gps
+      left join (
+           select tt.clm_no,tt.pol_no,tt.plncde from data_conso.claim_transaction tt
+           group by tt.clm_no,tt.pol_no,tt.plncde
+      ) t on replace(gps.gp_polno,'XXXXX','10000') = t.pol_no --left join data_conso.claim_transaction t on replace(gps.gp_polno,'XXXXX','10000') = t.pol_no
+      left join (
+           select uu.clm_no,uu.pay_ref_no from data_conso.claim_payment uu
+           group by uu.clm_no,uu.pay_ref_no
+      )u on u.clm_no = t.clm_no 
+
+     left join TSCM_ACCOUNT_link a on replace(gps.gp_polno,'XXXXX','10000') = a.aclk_account_number
+     left join tscm_account_transaction b on a.aclk_id = b.actr_account_id and b.actr_transaction_event_id = u.pay_ref_no
+     LEFT join TSCM_CHEQUE f on gps.gp_chqno =  f.chqe_ext_chq_number  and gps.gp_amount = f.chqe_amount
+     
+     left join TSCM_TRANSACTION_EVENT c on c.TREV_ID = b.actr_transaction_event_id
+     left JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = c.TREV_TRANSACTION_TYPE_ID
+
+     left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = b.actr_transaction_event_id and f.chqe_id = e.cteb_cheque_id
+     LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
+     LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
+     LEFT join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id and gps.gp_chqno =  f.chqe_ext_chq_number  and gps.gp_amount = f.chqe_amount
+     LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
+
+     where gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+     and gps.gp_core_system = 'TLM'
+     --and f.chqe_ext_chq_number is not null and f.chqe_amount is not null
+     and gps.gp_paiddate = (CASE
+        WHEN e.CTEB_PAYMENT_IND = 1 THEN
+        CASE
+          WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+            CASE
+              WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN   TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' )
+            END
+        END
+       WHEN e.CTEB_PAYMENT_IND = -1 THEN
+        CASE
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR( f.CHQE_DATE_PRINTED, 'YYYYMMDD' )
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' ) 
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN TO_CHAR( MTTR.MTTR_DUE_DATE, 'YYYYMMDD' ) 
+        END
+     END)
+)
+select gps.gp_polno,gps.gp_chqno,gps.gp_amount,gps.gp_paiddate,gps.ModuleCode from viewModule gps --633 > 
+where gps.ModuleCode = 'TCLM'
+
+--and gps.gp_polno = 'XXXXX1139286'
