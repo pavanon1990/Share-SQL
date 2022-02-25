@@ -1,3 +1,4 @@
+--insert into MIG_NC_INTERFACE
 WITH viewModule as (
 select 
     CASE 
@@ -59,12 +60,12 @@ select
 )
 , dataModels as 
 (
-  select gps.*,tba.trev_effective_date
+  select gps.*--,tba.trev_effective_date
   
   from viewModule gps
-  left join dataIncureDate tba on replace(gps.gp_polno,'XXXXX','10000') = tba.aclk_account_number
-  and gps.gp_chqno = tba.CHQE_EXT_CHQ_NUMBER and gps.gp_amount = tba.chqe_amount 
-  and gps.gp_PAIDDATE = tba.CTEB_DATE_PAID
+  --left join dataIncureDate tba on replace(gps.gp_polno,'XXXXX','10000') = tba.aclk_account_number
+  --and gps.gp_chqno = tba.CHQE_EXT_CHQ_NUMBER and gps.gp_amount = tba.chqe_amount 
+  --and gps.gp_PAIDDATE = tba.CTEB_DATE_PAID
   where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
   and gps.Modulecode is not null
   and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
@@ -174,7 +175,8 @@ select
      ,gps.gp_exptobank_filenme as PYWFRF
      ,'scblife' as PYWCID
      ,'' as PYWBRF
-     ,gps.trev_effective_date as PYWICD -- Wait logic incurred date
+     ,'' as PYWICD
+     --,gps.trev_effective_date as PYWICD -- Wait logic incurred date
      ,(select trans_value02 from MIG_T_MAPPING t 
           where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
           and TRANS_S01 = gps.GP_PAYMTH
@@ -199,5 +201,5 @@ select
   from dataModels gps
 )
 --select * from dataModels
-select * from Interface  --where PYWCHS = 'CANCEL' and pywref = '30991562'
+select count(*) from Interface  --where PYWCHS = 'CANCEL' and pywref = '30991562'
 --select * from TPYFDTD
