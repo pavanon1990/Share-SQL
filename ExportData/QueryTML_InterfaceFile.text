@@ -222,6 +222,6 @@ select * from dataInterface
 
 
 
-select pywref,PYWCHQ,PYWAMT,PYWPYD from Mig_Nc_Interface
+select 'XXXXX'||substr(pywref,2,length(pywref)) as pol_no ,PYWCHQ,PYWAMT,PYWPYD from Mig_Nc_Interface
 group by pywref,PYWCHQ,PYWAMT,PYWPYD
 having count (pywref)> 1
