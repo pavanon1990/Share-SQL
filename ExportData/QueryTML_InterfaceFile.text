@@ -218,3 +218,10 @@ select
   and gps.gp_paiddate = b.paiddate
 )
 select * from dataInterface 
+
+
+
+
+select pywref,PYWCHQ,PYWAMT,PYWPYD from Mig_Nc_Interface
+group by pywref,PYWCHQ,PYWAMT,PYWPYD
+having count (pywref)> 1
