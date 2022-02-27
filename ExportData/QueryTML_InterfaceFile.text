@@ -1,0 +1,220 @@
+WITH viewModule as (
+select 
+    CASE 
+    WHEN gps.gp_core_system = 'TLM' 
+       THEN
+         ( select trans_value01 from MIG_T_MAPPING t 
+            where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+            and TRANS_S01 = gps.gp_core_system
+            and gps.gp_paydesc  like '%'||trans_s02||'%'
+            and trans_s03 is null ) 
+        ELSE
+          (select trans_value01 from MIG_T_MAPPING t 
+              where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+              and TRANS_S01 = gps.gp_core_system
+              and TRANS_S02 = substr(gps.gp_transref,1,3)
+              and trans_s03 is null) 
+         END as ModuleCode
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWCHS
+     ,(select trans_value02 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWTRS
+      ,gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts as checkStatus
+     ,gps.*
+     from GPS_PAYMENT gps
+)
+,incurredate as 
+(
+select 
+  distinct ACTR.ACTR_ACCOUNT_ID,TREV.TREV_ID ,ACLK.ACLK_ID,TO_CHAR(TREV_EFFECTIVE_DATE,'YYYYMMDD') as TREV_EFFECTIVE_DATE ,f.chqe_ext_chq_number,f.chqe_amount,aclk.aclk_account_number 
+  ,t.plncde,ACTR.actr_transaction_event_id
+  ,CASE
+        WHEN e.CTEB_PAYMENT_IND = 1 THEN
+        CASE
+          WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+            CASE
+              WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN   TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' )
+            END
+        END
+       WHEN e.CTEB_PAYMENT_IND = -1 THEN
+        CASE
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR( f.CHQE_DATE_PRINTED, 'YYYYMMDD' )
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' ) 
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN TO_CHAR( MTTR.MTTR_DUE_DATE, 'YYYYMMDD' ) 
+        END
+  END as paiddate
+  from TSCM_ACCOUNT_LINK ACLK 
+  INNER JOIN TSCM_ACCOUNT_TRANSACTION ACTR ON ACTR.ACTR_ACCOUNT_ID = ACLK.ACLK_ID
+  LEFT JOIN TSCM_TRANSACTION_EVENT TREV ON TREV.TREV_ID = ACTR.ACTR_TRANSACTION_EVENT_ID
+  left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = ACTR.actr_transaction_event_id
+  left join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id
+
+  left JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = TREV.TREV_TRANSACTION_TYPE_ID
+  LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
+  LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
+  LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
+  
+  left join data_conso.claim_payment u on u.pay_ref_no = to_char(ACTR.actr_transaction_event_id)
+  left join data_conso.claim_transaction t on t.clm_no = u.clm_no and t.pol_no = aclk.aclk_account_number
+)
+, dataModels as 
+(
+  select gps.*
+  from viewModule gps
+  where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+  and gps.Modulecode is not null and gps.Modulecode = 'TCLM' ---- เอาออกทีหลัง
+  and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
+)
+, dataInterface as (
+  select CASE 
+          WHEN ModuleCode = 'TCLM' and (gps.gp_payee_name like '%โรงพยาบาล%' or gps.gp_payee_name like '%ร.พ.%') 
+          THEN SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno))
+     ELSE
+          case 
+             when gps.gp_core_system = 'TLM'
+                  then '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
+             when length(gps.gp_polno) > 8
+               then 'read data_conso.mapping'
+             when length(gps.gp_polno) = 9
+               then 2 || SUBSTR(gps.gp_polno,2,LENGTH(gps.gp_polno))
+             else gps.gp_polno  ||'no data policy ' ||  gps.gp_custrefno 
+          end
+     END as PYWREF
+     ,gps.gp_payee_name as PYWBEN
+     ,gps.gp_confirmdate as PYWTRD
+     ,gps.gp_paiddate as PYWPYD
+     ,gps.gp_amount as PYWAMT -- split value        
+     --,to_char(gps.gp_amount, 'fm9999999.90') as PYWAMT -- split value        
+     ,gps.gp_paydesc as PYWCM1
+     ,'' as PYWCM2       
+     ,ModuleCode as PYWMOD
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C02' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and trans_s03 is null) as PYWPYT
+     ,CASE
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+           THEN ''
+         ELSE gps.GP_BNKCODE
+      END as PYWBNK -- 10
+     ,CASE
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+           THEN ''
+         ELSE gps.GP_PAYEE_BNKACCNO
+       END as PYWACT
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and trans_s03 is null) as PYWTYP
+     ,CASE 
+         WHEN gps.gp_paymth = 'C' or  gps.gp_paymth = 'D' 
+         THEN gps.gp_chqno
+         ELSE ''
+      END as PYWCHQ
+     ,PYWCHS as PYWCHS
+     ,'0' as PYWCLR --15
+     ,'0' as PYWSLD   
+     ,CASE 
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'R' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'D' and gp_sub_paymth = 'D' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        ELSE '0'
+     END as PYWCAD  
+     ,PYWTRS as PYWTRS
+     ,'' as PYWRMK 
+     ,'S' as PYWRST --20
+     ,gps.gp_bnksacc_no as PYWDBA
+     ,'' as PYWCBA
+     ,'' as PYWUPS
+     ,'' as PYWOIC
+     ,'' as PYWMON --25
+     ,CASE
+         WHEN PYWCHS = 'REJECT' and PYWTRS = 'SUCCESS'
+         THEN '2'
+         ELSE '' 
+     END as PYWUPB
+     ,'' as PYWREK
+     ,'MIGNCUSR' as PYWCRU
+     ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWCRD 
+     ,'0' as PYWCRT --30
+     ,'MIGNCUSR' as PYWLMU 
+     ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWLMD
+     ,'0' as PYWLMT
+     ,'0' as PYWRPD
+     ,'0' as PYWRKD
+     ,'0' as PYWOCD
+     ,'' as PYWNAC
+     ,'' as PYWNCQ
+     ,'' as PYWRQN     
+     ,CASE
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'C' and gp_sub_paymth = 'C' and gp_lastupd_sts = 'R' 
+             THEN gps.gp_lastupd_stsdate
+        WHEN gps.gp_paymth = 'D' and gp_sub_paymth = 'D' and gp_lastupd_sts = 'S' 
+             THEN gps.gp_lastupd_stsdate
+        ELSE ''
+      END as PYWSPD --40
+     ,'SCB' as PYWBPN
+     ,'NC' as PYWSRC
+     ,'N'||gps.gp_custrefno as PYWPYN
+     ,'' as PYWCHL
+     ,'' as PYWRPY
+     ,gps.gp_exptobank_filenme as PYWFRF
+     ,'scblife' as PYWCID
+     ,'' as PYWBRF
+     ,b.TREV_EFFECTIVE_DATE as PYWICD
+     ,(select trans_value02 from MIG_T_MAPPING t 
+          where SYSTEM_NAME = 'GPS' and trans_code = 'C04' 
+          and TRANS_S01 = gps.GP_PAYMTH
+          and TRANS_S02 = gps.GP_SUB_PAYMTH
+          and TRANS_S03 is null
+      ) as PYWSTYP --50
+      ,'Y' as PYWORG
+      ,'' as PYWORN from dataModels gps
+  left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
+  where gps.gp_chqno = b.chqe_ext_chq_number
+  and gps.gp_amount = b.chqe_amount
+  and gps.gp_paiddate = b.paiddate
+),CHECKDUP_INTERFACE_TYPEFDTD as (
+  select gps.gp_polno,gps.gp_chqno,gps.gp_amount,gps.gp_paiddate 
+  ,'3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno)) as PYWREF -- เอาออกทีหลัง
+  from dataModels gps
+  left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
+  where gps.gp_chqno = b.chqe_ext_chq_number
+  and gps.gp_amount = b.chqe_amount
+  and gps.gp_paiddate = b.paiddate
+  group by gps.gp_polno,gps.gp_chqno,gps.gp_amount,gps.gp_paiddate
+  having count(gps.gp_polno) > 1
+)
+,TPYFDTD as (
+  --select gps.gp_chqno,gps.gp_amount,gps.gp_paiddate,b.chqe_ext_chq_number,b.chqe_amount,b.aclk_account_number,b.paiddate
+  --,b.plncde,b.actr_transaction_event_id,
+  select
+  SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno)) as WKPAYN
+  ,CASE WHEN gps.gp_core_system = 'TLM' THEN 
+   '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
+   ELSE gps.gp_polno||'DDD'
+   END as WKPOLN
+  ,b.plncde as WKPLNC
+  , to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
+  ,CASE 
+   WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
+  from dataModels gps
+  left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
+  where gps.gp_chqno = b.chqe_ext_chq_number
+  and gps.gp_amount = b.chqe_amount
+  and gps.gp_paiddate = b.paiddate
+)
+select * from dataInterface 
