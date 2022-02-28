@@ -3,3 +3,12 @@ INSERT INTO MIG_NC_LOG
 select SYS_GUID(),'MIG_NC_TPYFDTD' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno,'Data not found PLAN CODE'  from mig_nc_tpyfdtd t
 inner join gps_payment gps on TRIM('S'||t.wkpayn) = gps.gp_custrefno
 where t.wkplnc is null
+
+
+insert into MIG_NC_LOG
+select 
+SYS_GUID(),UPPER('mig_nc_interface') as FILE_NAME,t.core_system,PYWMOD,gps.gp_polno,gps.gp_custrefno,
+'Data not found VALUES02 CASE SYSTEM_NAME=''GPS'' and TRANS_CODE=''C01''and TRANS_S01='''||gps.gp_paymth||''' and TRANS_S02='''||gps.gp_sub_paymth||''' and TRANS_S03 = '''||gps.gp_lastupd_sts||''''
+from mig_nc_interface t
+inner join gps_payment gps on TRIM(t.pywref) = replace(gps.gp_polno,'XXXXX','3') and TRIM(t.PYWPYN) = 'N'||gps.gp_custrefno 
+where PYWTRS is null
