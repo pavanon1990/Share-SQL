@@ -29,7 +29,7 @@ select
         END
     END as WKREFN
     ,GPS.GP_POLNO as WKORGN 
-    ,'' as WKROLE ------- 
+    ,clnt_pol.relationship_type as WKROLE ------- 
     ,'NC' as WKSRCS
     ,'' as WKPSTS                                                                                                                             ------- 5
     ,( select t.agcde2 from data_conso.polmstpf  t where POLNBR = REPLACE(gps.gp_polno,'XXXXX','10000')) as WKAGNT ------- เอา Replace ออกด้วย
