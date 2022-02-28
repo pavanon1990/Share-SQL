@@ -1,0 +1,76 @@
+WITH viewModule as (
+select 
+    CASE 
+    WHEN gps.gp_core_system = 'TLM' 
+       THEN
+         ( select trans_value01 from MIG_T_MAPPING t 
+            where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+            and TRANS_S01 = gps.gp_core_system
+            and gps.gp_paydesc  like '%'||trans_s02||'%'
+            and trans_s03 is null ) 
+        ELSE
+          (select trans_value01 from MIG_T_MAPPING t 
+              where SYSTEM_NAME = 'GPS' and trans_code = 'C03' 
+              and TRANS_S01 = gps.gp_core_system
+              and TRANS_S02 = substr(gps.gp_transref,1,3)
+              and trans_s03 is null) 
+         END as ModuleCode
+     ,(select trans_value01 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWCHS
+     ,(select trans_value02 from MIG_T_MAPPING t 
+      where SYSTEM_NAME = 'GPS' and trans_code = 'C01' 
+      and TRANS_S01 = gps.GP_PAYMTH
+      and TRANS_S02 = gps.GP_SUB_PAYMTH
+      and TRANS_S03 = gps.gp_lastupd_sts) as PYWTRS
+      ,gps.gp_paymth||gps.gp_sub_paymth||gps.gp_lastupd_sts as checkStatus
+     ,gps.*
+     from GPS_PAYMENT gps
+)
+,incurredate as 
+(
+select 
+  distinct ACTR.ACTR_ACCOUNT_ID,TREV.TREV_ID ,ACLK.ACLK_ID,TO_CHAR(TREV_EFFECTIVE_DATE,'YYYYMMDD') as TREV_EFFECTIVE_DATE ,f.chqe_ext_chq_number,f.chqe_amount,aclk.aclk_account_number 
+  ,ACTR.actr_transaction_event_id --,t.plncde
+  ,CASE
+        WHEN e.CTEB_PAYMENT_IND = 1 THEN
+        CASE
+          WHEN TTYP.TTYP_SHORT_DESCRIPTION = 'Paymt Into Susp' THEN
+            CASE
+              WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct credit','Credit card','Direct Debit') THEN   TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' )
+            END
+        END
+       WHEN e.CTEB_PAYMENT_IND = -1 THEN
+        CASE
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Bank draft','Cheque','Company cheque','Cheque payment') THEN TO_CHAR( f.CHQE_DATE_PRINTED, 'YYYYMMDD' )
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Direct Debit') THEN TO_CHAR( MTRB.MTRB_DATE_AUTHORISED, 'YYYYMMDD' ) 
+          WHEN PAYMENT_CODE.CODE_SHORT_DESCRIPTION in ('Credit card','Direct credit') THEN TO_CHAR( MTTR.MTTR_DUE_DATE, 'YYYYMMDD' ) 
+        END
+  END as paiddate
+  from TSCM_ACCOUNT_LINK ACLK 
+  INNER JOIN TSCM_ACCOUNT_TRANSACTION ACTR ON ACTR.ACTR_ACCOUNT_ID = ACLK.ACLK_ID
+  LEFT JOIN TSCM_TRANSACTION_EVENT TREV ON TREV.TREV_ID = ACTR.ACTR_TRANSACTION_EVENT_ID
+  left join TSCM_CLIENT_TRANS_EVENT_BRIDGE e on e.CTEB_TRANSACTION_EVENT_ID = ACTR.actr_transaction_event_id
+  left join TSCM_CHEQUE f on f.chqe_id = e.cteb_cheque_id
+
+  left JOIN TSCM_TRANSACTION_TYPE TTYP ON TTYP.TTYP_ID = TREV.TREV_TRANSACTION_TYPE_ID
+  LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
+  LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
+  LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
+  left join data_conso.claim_payment u on u.pay_ref_no = to_char(ACTR.actr_transaction_event_id)
+  --left join data_conso.claim_transaction t on t.clm_no = u.clm_no and t.pol_no = aclk.aclk_account_number
+)
+, dataModels as 
+(
+  select gps.*
+  from viewModule gps
+  where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
+  and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง 
+  and gps.Modulecode = 'POS' ---- เอาออกทีหลัง TCLM : 633 POS : 5519 COL : 715 UI : NONE
+) 
+select * from dataModels 
+
+--select gps.gp_core_system,gps.gp_paydesc, gps.* from viewModule gps
+--where  modulecode is null and gps.gp_core_system = 'TLM'
