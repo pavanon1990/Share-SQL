@@ -1,3 +1,5 @@
+--INSERT into MIG_NC_INTERFACE
+--INSERT into MIG_NC_TPYFDTD
 WITH viewModule as (
 select 
     CASE 
@@ -33,7 +35,7 @@ select
 (
 select 
   distinct ACTR.ACTR_ACCOUNT_ID,TREV.TREV_ID ,ACLK.ACLK_ID,TO_CHAR(TREV_EFFECTIVE_DATE,'YYYYMMDD') as TREV_EFFECTIVE_DATE ,f.chqe_ext_chq_number,f.chqe_amount,aclk.aclk_account_number 
-  ,t.plncde,ACTR.actr_transaction_event_id
+  ,ACTR.actr_transaction_event_id --,t.plncde
   ,CASE
         WHEN e.CTEB_PAYMENT_IND = 1 THEN
         CASE
@@ -59,17 +61,16 @@ select
   LEFT JOIN TSCM_MT_TRANSACTION MTTR ON MTTR_ID = e.CTEB_MTS_ROW_ID
   LEFT JOIN TSCM_MT_BATCH MTRB ON MTRB.MTRB_ID = MTTR.MTTR_BATCH_ID
   LEFT JOIN TSCM_CODE PAYMENT_CODE ON PAYMENT_CODE.CODE_ID = e.CTEB_PAYMT_METHOD_CODE_ID
-  
   left join data_conso.claim_payment u on u.pay_ref_no = to_char(ACTR.actr_transaction_event_id)
-  left join data_conso.claim_transaction t on t.clm_no = u.clm_no and t.pol_no = aclk.aclk_account_number
+  --left join data_conso.claim_transaction t on t.clm_no = u.clm_no and t.pol_no = aclk.aclk_account_number
 )
 , dataModels as 
 (
   select gps.*
   from viewModule gps
   where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
-  and gps.Modulecode is not null and gps.Modulecode = 'TCLM' ---- เอาออกทีหลัง
-  and gps.gp_core_system = 'TLM' -- เอาออกทีหลัง
+  and gps.gp_core_system = 'TLM' -- SYSTEM -- เอาออกทีหลัง
+  and gps.Modulecode = 'POS' -- MODULE-- เอาออกทีหลัง
 )
 , dataInterface as (
   select CASE 
@@ -182,8 +183,11 @@ select
           and TRANS_S03 is null
       ) as PYWSTYP --50
       ,'Y' as PYWORG
-      ,'' as PYWORN from dataModels gps
-  left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
+      ,'' as PYWORN
+      ,'TLM'
+       from dataModels gps
+  left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number -- เอาออกทีหลัง
+  --left join polmstpf pm on replace(gps.gp_polno,'XXXXX','10000') = pm.polnbr -- เอาออกทีหลัง
   where gps.gp_chqno = b.chqe_ext_chq_number
   and gps.gp_amount = b.chqe_amount
   and gps.gp_paiddate = b.paiddate
@@ -199,29 +203,32 @@ select
   having count(gps.gp_polno) > 1
 )
 ,TPYFDTD as (
-  --select gps.gp_chqno,gps.gp_amount,gps.gp_paiddate,b.chqe_ext_chq_number,b.chqe_amount,b.aclk_account_number,b.paiddate
-  --,b.plncde,b.actr_transaction_event_id,
   select
   SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno)) as WKPAYN
   ,CASE WHEN gps.gp_core_system = 'TLM' THEN 
    '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
    ELSE gps.gp_polno||'DDD'
    END as WKPOLN
-  ,b.plncde as WKPLNC
+  ,CASE 
+     WHEN ModuleCode = 'TLM' THEN c.plncde
+     ELSE pm.plncde
+     END as WKPLNC
   , to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
   ,CASE 
    WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
+  ,'TLM'
+  ,gps.ModuleCode
   from dataModels gps
   left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
+  left join (
+       select distinct t.plncde,t.pol_no from data_conso.claim_payment u 
+       left join data_conso.claim_transaction t on t.clm_no = u.clm_no 
+       where rownum = 1
+  ) c on replace(gps.gp_polno,'XXXXX','10000') = c.pol_no 
+  left join polmstpf pm on replace(gps.gp_polno,'XXXXX','10000') = pm.polnbr
   where gps.gp_chqno = b.chqe_ext_chq_number
   and gps.gp_amount = b.chqe_amount
   and gps.gp_paiddate = b.paiddate
 )
 select * from dataInterface 
-
-
-
-
-select 'XXXXX'||substr(pywref,2,length(pywref)) as pol_no ,PYWCHQ,PYWAMT,PYWPYD from Mig_Nc_Interface
-group by pywref,PYWCHQ,PYWAMT,PYWPYD
-having count (pywref)> 1
+--select * from TPYFDTD
