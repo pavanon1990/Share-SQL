@@ -70,7 +70,7 @@ select
   from viewModule gps
   where checkStatus not in ('CCP','CCW','DDP','DDW','MAS','MBS','MCS','MMW','MMS')
   and gps.gp_core_system = 'TLM' -- SYSTEM -- เอาออกทีหลัง
-  and gps.Modulecode = 'POS' -- MODULE-- เอาออกทีหลัง
+  and gps.Modulecode = 'TCLM' -- MODULE-- เอาออกทีหลัง  TCLM : 633 POS : 5519 COL : 715 UI : NONE
 )
 , dataInterface as (
   select CASE 
@@ -204,6 +204,9 @@ select
 )
 ,TPYFDTD as (
   select
+   /*gps.gp_polno,actr_transaction_event_id
+   ,c.pay_ref_no
+   ,c.clm_no,*/
   SUBSTR(gps.gp_custrefno,2,LENGTH(gps.gp_custrefno)) as WKPAYN
   ,CASE WHEN gps.gp_core_system = 'TLM' THEN 
    '3'||SUBSTR(gps.gp_polno,6,LENGTH(gps.gp_polno))
@@ -212,7 +215,7 @@ select
   ,CASE 
      WHEN ModuleCode = 'TCLM' THEN c.plncde
      ELSE pm.plncde
-     END as WKPLNC
+  END as WKPLNC
   , to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
   ,CASE 
    WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP
@@ -220,15 +223,17 @@ select
   ,gps.ModuleCode
   from dataModels gps
   left join incurredate b on replace(gps.gp_polno,'XXXXX','10000') = b.aclk_account_number
-  left join (
-       select distinct t.plncde,t.pol_no from data_conso.claim_payment u 
+  left join ( select * from(
+       select t.plncde,t.pol_no,u.pay_ref_no,t.clm_no ,ROW_NUMBER() OVER(PARTITION BY t.clm_no ORDER BY t.clm_no) AS Seq from data_conso.claim_payment u 
        left join data_conso.claim_transaction t on t.clm_no = u.clm_no 
-       where rownum = 1
-  ) c on replace(gps.gp_polno,'XXXXX','10000') = c.pol_no 
+       ) subquery where subquery.Seq = 1
+  ) c on to_char(b.ACTR_TRANSACTION_EVENT_ID) = c.pay_ref_no 
   left join polmstpf pm on replace(gps.gp_polno,'XXXXX','10000') = pm.polnbr
   where gps.gp_chqno = b.chqe_ext_chq_number
   and gps.gp_amount = b.chqe_amount
   and gps.gp_paiddate = b.paiddate
 )
-select * from dataInterface 
---select * from TPYFDTD
+--select * from dataInterface 
+select * from TPYFDTD
+--where WKPOLN = '31610049'
+
