@@ -1,0 +1,40 @@
+
+select 
+      tb.WKREFN  
+      , tb.WKORGN
+      , tb.WKROLE 
+      , tb.WKSRCS
+      , tb.WKPSTS
+      , tb.WKAGNT
+      , CASE WHEN tb.ModuleCode = 'TCLM' THEN (select t.plncde from data_conso.claim_transaction t where t.pol_no = REPLACE(tb.gp_polno,'XXXXX','10000') and rownum = 1)
+        ELSE pm.plncde 
+        END 
+        as WKPLNC
+      , tb.WKCNUM
+      , tb.WKCTYP
+      , tb.WKIDNO
+      , tb.WKTTLN
+      , tb.WKFSNM
+      , tb.WKMDNM
+      , tb.WKLSNM
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.address1 ELSE '' END as WKADD1 --15
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.address2 ELSE '' END as WKADD2
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.sub_district ELSE '' END as WKADD3
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.district ELSE '' END as WKADD4
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.province ELSE '' END as WKPROV
+       ,CASE WHEN tb.WKROLE = 'ADD' THEN clnt_add.postcode ELSE '' END as WKZIPC 
+       ,tb.ModuleCode
+       ,tb.gp_core_system
+from(
+  select 
+    * from data_TPYFILNC lnc
+  where 
+  lnc.GP_CORE_SYSTEM = 'TLM'
+  and lnc.ModuleCode = 'TCLM'
+) tb
+left join data_conso.clientaddress clnt_add on tb.clientaddressid = clnt_add.clientaddressid
+left join Data_tscm_claim_payment b on b.aclk_account_number = replace(tb.gp_polno,'XXXXX','10000')
+left join data_conso.polmstpf pm on replace(tb.gp_polno,'XXXXX','10000') = pm.polnbr
+where tb.gp_chqno = b.chqe_ext_chq_number
+  and tb.gp_amount = b.chqe_amount
+  and tb.gp_paiddate = b.paiddate
