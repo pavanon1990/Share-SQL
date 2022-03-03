@@ -1,0 +1,75 @@
+select
+  NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO)
+  ,gps.GP_POLNO
+  ,gps.GP_CORE_SYSTEM
+  ,gps.gp_payee_name as PYWBEN
+  ,gps.gp_confirmdate as PYWTRD
+  ,gps.gp_paiddate as PYWPYD
+  ,gps.gp_amount as PYWAMT
+  ,gps.gp_paydesc as PYWCM1
+  ,'' as PYWCM2       
+  ,ModuleCode as PYWMOD
+  ,gps.PYWPYT
+  ,NC_GET_BANK_ACC_CHQE(gps.GP_PAYMTH,gps.GP_BNKCODE,null,null,'PYWBNK') as PYWBNK --10
+  ,NC_GET_BANK_ACC_CHQE(gps.GP_PAYMTH,null,gps.GP_PAYEE_BNKACCNO,null,'PYWACT') as PYWACT 
+  ,gps.PYWTYP
+  ,NC_GET_BANK_ACC_CHQE(gps.GP_PAYMTH,null,null,gps.GP_CHQNO,'PYWCHQ') as PYWCHQ
+  ,gps.PYWCHS
+  ,'0' as PYWCLR --15
+  ,'0' as PYWSLD   
+  ,NC_GET_CAN_STOP(gps.GP_PAYMTH,gps.GP_SUB_PAYMTH,gps.GP_LASTUPD_STS,gps.GP_LASTUPD_STSDATE,'PYWCAD') as PYWCAD
+  ,gps.PYWTRS
+  ,'' as PYWRMK 
+  ,'S' as PYWRST --20
+  ,gps.gp_bnksacc_no as PYWDBA
+  ,'' as PYWCBA
+  ,'' as PYWUPS
+  ,'' as PYWOIC
+  ,'' as PYWMON --25
+  ,CASE WHEN PYWCHS = 'REJECT' and PYWTRS = 'SUCCESS' THEN '2'
+        ELSE '' 
+   END as PYWUPB
+  ,'' as PYWREK
+  ,'MIGNCUSR' as PYWCRU
+  ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWCRD 
+  ,'0' as PYWCRT --30
+  ,'MIGNCUSR' as PYWLMU 
+  ,TO_CHAR(SYSDATE, 'YYYYMMDD') as PYWLMD
+  ,'0' as PYWLMT
+  ,'0' as PYWRPD
+  ,'0' as PYWRKD
+  ,'0' as PYWOCD
+  ,'' as PYWNAC
+  ,'' as PYWNCQ
+  ,'' as PYWRQN      
+  ,NC_GET_CAN_STOP(gps.GP_PAYMTH,gps.GP_SUB_PAYMTH,gps.GP_LASTUPD_STS,gps.GP_LASTUPD_STSDATE,'PYWSPD') as PYWSPD 
+  ,'SCB' as PYWBPN
+  ,'NC' as PYWSRC
+  ,'N'||gps.gp_custrefno as PYWPYN
+  ,'' as PYWCHL
+  ,'' as PYWRPY
+  ,gps.gp_exptobank_filenme as PYWFRF
+  ,'scblife' as PYWCID
+  ,'' as PYWBRF
+  ,tscm.TREV_EFFECTIVE_DATE as PYWICD
+  ,gps.PYWSTYP
+  ,'Y' as PYWORG
+  ,'' as PYWORN
+  ,case when gps.ModuleCode = 'TCLM' 
+    then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
+    else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = gps.GP_POLNO ) 
+  end as plncde
+  ,'TLM'
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+gps.gp_core_system = 'TLM' 
+--and gps.ModuleCode = 'TCLM'
+
+
+-- ALL : 6.12 
+-- NO PLNCDE : 6.01
