@@ -1,11 +1,9 @@
 select
   NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO) as PYWREF
-  ,gps.GP_POLNO
-  ,gps.GP_CORE_SYSTEM
   ,gps.gp_payee_name as PYWBEN
-  ,gps.gp_confirmdate as PYWTRD
+  ,gps.gp_confirmdate as PYWTRD 
   ,gps.gp_paiddate as PYWPYD
-  ,gps.gp_amount as PYWAMT
+  ,gps.gp_amount as PYWAMT--5
   ,gps.gp_paydesc as PYWCM1
   ,'' as PYWCM2       
   ,ModuleCode as PYWMOD
