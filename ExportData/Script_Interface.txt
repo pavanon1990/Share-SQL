@@ -1,5 +1,5 @@
 select
-  NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO)
+  NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO) as PYWREF
   ,gps.GP_POLNO
   ,gps.GP_CORE_SYSTEM
   ,gps.gp_payee_name as PYWBEN
@@ -70,6 +70,3 @@ where
 gps.gp_core_system = 'TLM' 
 --and gps.ModuleCode = 'TCLM'
 
-
--- ALL : 6.12 
--- NO PLNCDE : 6.01
