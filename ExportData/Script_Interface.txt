@@ -40,19 +40,19 @@ select
   ,'' as PYWNAC
   ,'' as PYWNCQ
   ,'' as PYWRQN      
-  ,NC_GET_CAN_STOP(gps.GP_PAYMTH,gps.GP_SUB_PAYMTH,gps.GP_LASTUPD_STS,gps.GP_LASTUPD_STSDATE,'PYWSPD') as PYWSPD 
+  ,NC_GET_CAN_STOP(gps.GP_PAYMTH,gps.GP_SUB_PAYMTH,gps.GP_LASTUPD_STS,gps.GP_LASTUPD_STSDATE,'PYWSPD') as PYWSPD --40
   ,'SCB' as PYWBPN
   ,'NC' as PYWSRC
   ,'N'||gps.gp_custrefno as PYWPYN
   ,'' as PYWCHL
-  ,'' as PYWRPY
+  ,'' as PYWRPY --45
   ,gps.gp_exptobank_filenme as PYWFRF
   ,'scblife' as PYWCID
   ,'' as PYWBRF
   ,tscm.TREV_EFFECTIVE_DATE as PYWICD
-  ,gps.PYWSTYP
+  ,gps.PYWSTYP --50
   ,'Y' as PYWORG
-  ,'' as PYWORN
+  ,'' as PYWORN --52
   ,case when gps.ModuleCode = 'TCLM' 
     then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
     else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = gps.GP_POLNO ) 
@@ -68,3 +68,6 @@ where
 gps.gp_core_system = 'TLM' 
 --and gps.ModuleCode = 'TCLM'
 
+
+-- ALL : 6.12 
+-- NO PLNCDE : 6.01
