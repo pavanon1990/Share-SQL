@@ -1,3 +1,4 @@
+insert into MIG_NC_TPYFILNC
 select
   NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO) as WKREFN
   ,GPS.GP_POLNO as WKORGN 
@@ -9,15 +10,15 @@ select
     then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
     else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = gps.GP_POLNO ) 
    end as WKPLNC
-  ,(select clp.cclient_id from data_conso.cclient_pol clp where clp.policynumber = gps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM 
+  ,(select clp.clientid from data_conso.cclient_pol clp where clp.policynumber = gps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM 
   ,'P' as WKCTYP
   ,(select t.Idno from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKIDNO  ----- 10
   ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKTTLN 
   ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKFSNM 
   ,'' as WKMDNM
   ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKLSNM 
-  ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.address1 ELSE '' END as WKADD1 --15
-  ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.address2 ELSE '' END as WKADD2
+  ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
+  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address2 END as WKADD2
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.sub_district ELSE '' END as WKADD3
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.district ELSE '' END as WKADD4
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.province ELSE '' END as WKPROV
@@ -51,15 +52,15 @@ select
     then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = datagps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
     else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = datagps.GP_POLNO ) 
    end as WKPLNC
-  ,(select clp.cclient_id from data_conso.cclient_pol clp where clp.policynumber = datagps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM --clp.relationship_type = 'OWNR'
+  ,(select clp.clientid from data_conso.cclient_pol clp where clp.policynumber = datagps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM --clp.relationship_type = 'OWNR'
   ,'P' as WKCTYP
   ,(select t.Idno from data_conso.polmstpf  t where POLNBR = datagps.GP_POLNO) as WKIDNO  ----- 10
   ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = datagps.GP_POLNO) as WKTTLN 
   ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = datagps.GP_POLNO) as WKFSNM 
   ,'' as WKMDNM
   ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = datagps.GP_POLNO) as WKLSNM 
-  ,clnt_add.address1 as WKADD1 --15
-  ,clnt_add.address2 as WKADD2
+  ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
+  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address2 END as WKADD2
   ,clnt_add.sub_district as WKADD3
   ,clnt_add.district as WKADD4
   ,clnt_add.province as WKPROV
