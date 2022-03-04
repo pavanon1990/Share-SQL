@@ -1,6 +1,8 @@
 -- LOG FOR MIG_NC_LOG
-INSERT INTO MIG_NC_LOG 
-select SYS_GUID(),'MIG_NC_TPYFDTD' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno,'Data not found PLAN CODE'  from mig_nc_tpyfdtd t
+--insert into MIG_NC_LOG 
+select SYS_GUID(),'MIG_NC_TPYFDTD' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno,
+CASE WHEN Module_Type = 'TCLM' THEN 'Data not found PLAN CODE in DATA_CONSO.CLAIM_TRANSACTION' ELSE 'Data not found PLAN CODE in POLMSTPF' END 
+  from mig_nc_tpyfdtd t
 inner join gps_payment gps on TRIM('S'||t.wkpayn) = gps.gp_custrefno
 where t.wkplnc is null
 
