@@ -39,7 +39,7 @@ gps.gp_core_system = 'TLM'
 and gps.modulecode is not null
 and clnt_pol.relationship_type != 'LIF2'
 
-union 
+union all
 
 select 
   NC_GET_WKREFN(datagps.GP_CORE_SYSTEM,datagps.GP_POLNO) as WKREFN
