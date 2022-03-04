@@ -7,7 +7,6 @@ select
   end as WKPLNC
   ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
   ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
-  ,'TLM'
   ,gps.GP_CORE_SYSTEM
   ,ModuleCode
   ,'GPS'
