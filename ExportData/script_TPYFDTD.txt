@@ -1,0 +1,22 @@
+select
+  SUBSTR(gps.GP_CUSTREFNO,2,LENGTH(gps.gp_custrefno)) as WKPAYN 
+  ,NC_GET_WKREFN(gps.GP_CORE_SYSTEM,gps.GP_POLNO) as WKPOLN
+  ,case when gps.ModuleCode = 'TCLM' 
+    then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
+    else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = gps.GP_POLNO ) 
+  end as WKPLNC
+  ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
+  ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
+  ,'TLM'
+  ,gps.GP_CORE_SYSTEM
+  ,ModuleCode
+  ,'GPS'
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+gps.gp_core_system = 'TLM' 
+and gps.modulecode is not null
