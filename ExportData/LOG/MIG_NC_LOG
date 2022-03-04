@@ -23,6 +23,15 @@ where lnc.wkrefn is null
 ) mtb 
 inner join data_gps gps on mtb.polno = gps.GP_POLNO
 
+insert into MIG_NC_LOG  -- MIG_NC_TPYFILNC PLNCDE
+select SYS_GUID(),'MIG_NC_TPYFILNC' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno
+,CASE WHEN Module_Type = 'TCLM' THEN 'Data not found PLAN CODE in DATA_CONSO.CLAIM_TRANSACTION' ELSE 'Data not found PLAN CODE in POLMSTPF' END 
+,'GPS'
+  from MIG_NC_TPYFILNC t
+inner join gps_payment gps on t.wkorgn = gps.gp_custrefno
+where t.wkplnc is null
+
+
 ------
 insert into MIG_NC_LOG
 select 
