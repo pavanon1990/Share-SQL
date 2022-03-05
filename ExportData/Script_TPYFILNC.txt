@@ -18,7 +18,7 @@ select
   ,'' as WKMDNM
   ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKLSNM 
   ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
-  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address2 END as WKADD2
+  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address2,1,30) ELSE clnt_add.address2 END as WKADD2
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.sub_district ELSE '' END as WKADD3
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.district ELSE '' END as WKADD4
   ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.province ELSE '' END as WKPROV
@@ -60,7 +60,7 @@ select
   ,'' as WKMDNM
   ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = datagps.GP_POLNO) as WKLSNM 
   ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
-  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address2 END as WKADD2
+  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address2,1,30) ELSE clnt_add.address2 END as WKADD2
   ,clnt_add.sub_district as WKADD3
   ,clnt_add.district as WKADD4
   ,clnt_add.province as WKPROV
