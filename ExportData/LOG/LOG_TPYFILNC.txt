@@ -11,7 +11,7 @@ select '10000'||substr(trim(inf.pywref),2,length(inf.pywref)) as polno,inf.pywre
            )lnc on trim(inf.pywref) = trim(lnc.wkrefn)
 where lnc.wkrefn is null
 ) mtb 
-inner join data_gps gps on mtb.polno = gps.GP_POLNO
+inner join data_gps gps on mtb.polno = gps.GP_POLNO;
 
 insert into MIG_NC_LOG  -- MIG_NC_TPYFILNC PLNCDE
 select SYS_GUID(),'MIG_NC_TPYFILNC' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno
@@ -19,4 +19,130 @@ select SYS_GUID(),'MIG_NC_TPYFILNC' as FIL_ENAME,t.Core_System,t.Module_Type,gps
 ,'GPS'
   from MIG_NC_TPYFILNC t
 inner join gps_payment gps on t.wkorgn = gps.gp_custrefno
-where t.wkplnc is null
+where t.wkplnc is null;
+
+insert into MIG_NC_LOG --Address1
+select SYS_GUID(),'MIG_NC_TPYFILNC' as FIL_ENAME ,tb.GP_CORE_SYSTEM,tb.ModuleCode,tb.GP_POLNO,tb.GP_CUSTREFNO
+       ,'Address1 length more than 30 character' as MESSAGE
+       ,'GPS' from(
+select
+    GPS.GP_POLNO 
+    ,GPS.GP_CUSTREFNO
+    ,GPS.GP_CORE_SYSTEM
+    ,GPS.ModuleCode
+    ,length(clnt_add.address1) as lenAddress1
+    ,length(clnt_add.address2) as lenAddress2
+from data_gps gps
+left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+where
+gps.gp_core_system = 'TLM' 
+and gps.modulecode is not null
+and clnt_pol.relationship_type != 'LIF2' and
+(
+    length(clnt_add.address1) > 30 
+)
+
+union 
+
+select 
+    datagps.GP_POLNO 
+    ,datagps.GP_CUSTREFNO
+    ,datagps.GP_CORE_SYSTEM
+    ,datagps.ModuleCode
+    ,length(clnt_add.address1) as lenAddress1
+    ,length(clnt_add.address2) as lenAddress2
+from data_gps datagps
+INNER JOIN (
+   select gps.GP_POLNO from data_gps gps --clnt_pol.relationship_type
+    left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+    where  gps.gp_core_system = 'TLM' and gps.modulecode is not null
+    and clnt_pol.relationship_type is not null and clnt_pol.relationship_type != 'LIF2'
+    and NOT EXISTS(
+      select clnt_pol.policynumber,clnt_pol.relationship_type from data_gps gp
+      left join data_conso.cclient_pol clnt on gp.GP_POLNO = clnt.POLICYNUMBER
+      where  gp.gp_core_system = 'TLM'
+      and gp.modulecode is not null
+      and clnt.relationship_type = 'DESA'
+      and gps.GP_POLNO = gp.gp_polno )
+   group by gps.GP_POLNO
+) tb on datagps.GP_POLNO = tb.GP_POLNO
+left join data_conso.cclient_pol clnt_pol on datagps.GP_POLNO = clnt_pol.POLICYNUMBER and clnt_pol.relationship_type = 'OWNR'
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+left join Data_tscm tscm on datagps.GP_POLNO = tscm.aclk_account_number
+     and datagps.gp_chqno = tscm.chqe_ext_chq_number
+     and datagps.gp_amount = tscm.chqe_amount
+     and datagps.gp_paiddate = tscm.paiddate
+where 
+(
+    length(clnt_add.address1) > 30
+)
+) tb
+where tb.LENADDRESS1 > 30;
+
+insert into MIG_NC_LOG  --Address2
+select SYS_GUID(),'MIG_NC_TPYFILNC' as FIL_ENAME ,tb.GP_CORE_SYSTEM,tb.ModuleCode,tb.GP_POLNO,tb.GP_CUSTREFNO
+       ,'Address2 length more than 30 character' as MESSAGE
+       ,'GPS' from(
+select
+    GPS.GP_POLNO 
+    ,GPS.GP_CUSTREFNO
+    ,GPS.GP_CORE_SYSTEM
+    ,GPS.ModuleCode
+    ,length(clnt_add.address1) as lenAddress1
+    ,length(clnt_add.address2) as lenAddress2
+from data_gps gps
+left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+where
+gps.gp_core_system = 'TLM' 
+and gps.modulecode is not null
+and clnt_pol.relationship_type != 'LIF2' and
+(
+    length(clnt_add.address2) > 30
+)
+
+union 
+
+select 
+    datagps.GP_POLNO 
+    ,datagps.GP_CUSTREFNO
+    ,datagps.GP_CORE_SYSTEM
+    ,datagps.ModuleCode
+    ,length(clnt_add.address1) as lenAddress1
+    ,length(clnt_add.address2) as lenAddress2
+from data_gps datagps
+INNER JOIN (
+   select gps.GP_POLNO from data_gps gps --clnt_pol.relationship_type
+    left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+    where  gps.gp_core_system = 'TLM' and gps.modulecode is not null
+    and clnt_pol.relationship_type is not null and clnt_pol.relationship_type != 'LIF2'
+    and NOT EXISTS(
+      select clnt_pol.policynumber,clnt_pol.relationship_type from data_gps gp
+      left join data_conso.cclient_pol clnt on gp.GP_POLNO = clnt.POLICYNUMBER
+      where  gp.gp_core_system = 'TLM'
+      and gp.modulecode is not null
+      and clnt.relationship_type = 'DESA'
+      and gps.GP_POLNO = gp.gp_polno )
+   group by gps.GP_POLNO
+) tb on datagps.GP_POLNO = tb.GP_POLNO
+left join data_conso.cclient_pol clnt_pol on datagps.GP_POLNO = clnt_pol.POLICYNUMBER and clnt_pol.relationship_type = 'OWNR'
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+left join Data_tscm tscm on datagps.GP_POLNO = tscm.aclk_account_number
+     and datagps.gp_chqno = tscm.chqe_ext_chq_number
+     and datagps.gp_amount = tscm.chqe_amount
+     and datagps.gp_paiddate = tscm.paiddate
+where 
+(
+    length(clnt_add.address2) > 30
+)
+) tb
+where tb.LENADDRESS2 > 30;
