@@ -146,3 +146,21 @@ where
 )
 ) tb
 where tb.LENADDRESS2 > 30;
+
+
+
+
+
+วิธีเช็ค Relationship_type
+select * from MIG_NC_TPYFILNC 
+where not exists 
+(
+  select pol from(
+    select pol from(
+      select distinct(wkorgn) as pol,WKROLE from MIG_NC_TPYFILNC
+      where wkrole in ('INS','OWN','PAY')
+    )
+    group by pol
+    having count(pol) = 3
+  )a where MIG_NC_TPYFILNC.Wkorgn = a.pol
+) 
