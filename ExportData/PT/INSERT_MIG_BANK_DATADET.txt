@@ -1,3 +1,8 @@
+INSERT INTO MIG_PT_DATADET
+Select b.* from MIG_BANK_INFO a
+Left join PT_DATADET b on a.draft_no = b.expfileln
+where b.expfileln is not null
+
 INSERT INTO MIG_BANK_DATADET
 Select * from MIG_BANK_INFO a
 Left join PT_DATADET b on a.draft_no = b.expfileln
