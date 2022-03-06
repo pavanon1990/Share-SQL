@@ -1,0 +1,7 @@
+insert into MIG_NC_LOG  
+select SYS_GUID(),'MIG_BANK_INFO' as FIL_ENAME,null,null,null,a.draft_no
+,'Can not map data between MIG_BANK_INFO and PT_DATADET'
+,'PT'
+from MIG_BANK_INFO a
+Left join PT_DATADET b on a.draft_no = b.expfileln
+where b.expfileln is null
