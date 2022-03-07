@@ -64,8 +64,7 @@ select
         WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) 
         ELSE 
           CASE 
-            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NULL THEN gps.GP_POLNO --LOG no found source
-            ELSE
+            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NOT NULL THEN 
               CASE 
                 WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'T' THEN '3'||SUBSTR(gp_polno,6,LENGTH(gp_polno))
                 WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN gps.GP_POLNO ELSE  gps.GP_POLNO END -- LOG MORE THEN 8 END
@@ -82,39 +81,40 @@ select
                   END
                 ELSE gps.GP_POLNO --LOG data not found
               END
+            ELSE
+              gps.GP_POLNO
           END
       END
   END as PYWREF
   ,CASE 
-    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
+    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN null
     ELSE
       CASE 
-        WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) 
+        WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN null
         ELSE 
           CASE 
-            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NULL THEN 'LOG no found source'
-            ELSE
+            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NOT NULL THEN 
               CASE 
-                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'T' THEN '3'||SUBSTR(gp_polno,6,LENGTH(gp_polno))
-                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN gps.GP_POLNO ELSE  'LOG MORE THEN 8 END' END
-                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'C' THEN '2'||SUBSTR(gp_polno,1,2)
-                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'D' THEN (SELECT  PREFIX||SUBSTR(gps.GP_POLNO,11,5) from mig_dm_pol_no_prefix where DM_INDEX = SUBSTR(gps.GP_POLNO,1,9))
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'T' THEN null
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN null ELSE  'POLICY MORE THEN 8 WITH SOUCRE E' END -- LOG MORE THEN 8 END
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'C' THEN null
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'D' THEN null
                 WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'L' THEN 
                   CASE 
                     WHEN 
-                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
                     WHEN 
-                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
                     ELSE 
-                     'LOG Data dupilcate from data_il.il_t_policy_mig'
+                      'Data dupilcate from data_il.il_t_policy_mig'
                   END
-                ELSE 'LOG data not found data_conso.polmstpf.source'
+                ELSE 'Data not found data_il.il_t_policy_mig'
               END
+            ELSE
+              'Data not found data_conso.polmstpf '
           END
       END
-  END 
- 
-  as LOGData
+  END as LOGData
   ,gps.gp_payee_name as PYWBEN
   ,gps.gp_confirmdate as PYWTRD 
   ,gps.gp_paiddate as PYWPYD
@@ -165,7 +165,7 @@ select
   ,'scblife' as PYWCID
   ,'' as PYWBRF
   ,tscm.TREV_EFFECTIVE_DATE as PYWICD
-  ,CASE WHEN tscm.TREV_EFFECTIVE_DATE is null THEN 'LOG data not found incuredate' END as PYWICD_LOG 
+  ,CASE WHEN tscm.TREV_EFFECTIVE_DATE is null THEN 'Data not found incuredate' END as PYWICD_LOG 
   ,gps.PYWSTYP --50
   ,'Y' as PYWORG
   ,'' as PYWORN --52
