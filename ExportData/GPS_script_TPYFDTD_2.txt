@@ -1,0 +1,90 @@
+INSERT INTO MIG_NC_TPYFDTD
+select 
+WKPAYN,
+WKPOLN,
+WKPLNC,
+WKPAMT,
+WKPTYP,
+tb.GP_CORE_SYSTEM,
+tb.ModuleCode,
+'GPS'
+from 
+(
+select
+  SUBSTR(gps.GP_CUSTREFNO,2,LENGTH(gps.gp_custrefno)) as WKPAYN 
+  ,CASE 
+    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
+    ELSE
+      CASE 
+        WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) 
+        ELSE 
+          CASE 
+            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NOT NULL THEN 
+              CASE 
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'T' THEN '3'||SUBSTR(gp_polno,6,LENGTH(gp_polno))
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN gps.GP_POLNO ELSE  gps.GP_POLNO END -- LOG MORE THEN 8 END
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'C' THEN '2'||SUBSTR(gp_polno,1,2)
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'D' THEN (SELECT  PREFIX||SUBSTR(gps.GP_POLNO,11,5) from mig_dm_pol_no_prefix where DM_INDEX = SUBSTR(gps.GP_POLNO,1,9))
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'L' THEN 
+                  CASE 
+                    WHEN 
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                    WHEN 
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                    ELSE 
+                      gps.GP_POLNO -- LOG Data dupilcate from data_il.il_t_policy_mig
+                  END
+                ELSE gps.GP_POLNO --LOG data not found
+              END
+            ELSE
+              gps.GP_POLNO
+          END
+      END
+  END as WKPOLN
+  ,CASE 
+    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN null
+    ELSE
+      CASE 
+        WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN null
+        ELSE 
+          CASE 
+            WHEN (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1) IS NOT NULL THEN 
+              CASE 
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'T' THEN null
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN null ELSE  'POLICY MORE THEN 8 WITH SOUCRE E' END -- LOG MORE THEN 8 END
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'C' THEN null
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'D' THEN null
+                WHEN (select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) = 'L' THEN 
+                  CASE 
+                    WHEN 
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
+                    WHEN 
+                      (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
+                    ELSE 
+                      'Data dupilcate from data_il.il_t_policy_mig'
+                  END
+                ELSE 'Data not found data_il.il_t_policy_mig'
+              END
+            ELSE
+              'Data not found data_conso.polmstpf.source ' || (select data_conso.polmstpf.source from data_conso.polmstpf where polnbr = gps.GP_POLNO and rownum = 1)
+          END
+      END
+  END as LOGData
+  ,case when gps.ModuleCode = 'TCLM' 
+    then (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) 
+    else (select pm.plncde from data_conso.polmstpf pm where pm.polnbr = gps.GP_POLNO ) 
+  end as WKPLNC
+  ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
+  ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
+  ,gps.GP_CORE_SYSTEM
+  ,ModuleCode
+  ,'GPS'
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+gps.modulecode is not null
+) tb
