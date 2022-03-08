@@ -8,26 +8,26 @@ from
 select
   gps.GP_CUSTREFNO,gps.GP_POLNO,
   CASE 
-   WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN  Case when tscm.TREV_EFFECTIVE_DATE is null then 'Data not found plan code in Module = TCLM and GP_CORE_SYSTEM = TLM' END  --TLM CLAM
+   WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN  Case when tscm.TREV_EFFECTIVE_DATE is null then 'Data not found plan code in Module = TCLM and GP_CORE_SYSTEM = TLM AMOUNT='||gps.GP_AMOUNT||' CHQNO='||gps.GP_CHQNO||' PAIDDATE='||gps.GP_PAIDDATE ' PAY_DESC='||gps.GP_PAYDESC END  --TLM CLAM
       WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
-        THEN Case when (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) is null then 'Data not found plan code in Module != TCLM and source = E' END
+        THEN Case when (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) is null then 'Data not found plan code in Module != TCLM and source = E AMOUNT='||gps.GP_AMOUNT||' CHQNO='||gps.GP_CHQNO||' PAIDDATE='||gps.GP_PAIDDATE ' PAY_DESC='||gps.GP_PAYDESC END
       WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN 
         CASE 
           WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is not null THEN null
           ELSE
             CASE 
               WHEN (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) is not null THEN null
-              ELSE 'Data not found plan code in Module = TCLM and soucre in (C, D, L, E)'
+              ELSE 'Data not found plan code in Module = TCLM and soucre in (C, D, L, E) AMOUNT='||gps.GP_AMOUNT||' CHQNO='||gps.GP_CHQNO||' PAIDDATE='||gps.GP_PAIDDATE' PAY_DESC='||gps.GP_PAYDESC
             END
          END
-      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C', 'D', 'L') ) THEN  
+      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C') ) THEN  
         CASE 
           WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN null
-          ELSE 'Data not found plan code in Module != TCLM and source in (C, D, L)'
+          ELSE 'Data not found plan code in Module != TCLM and source = C AMOUNT='||gps.GP_AMOUNT||' CHQNO='||gps.GP_CHQNO||' PAIDDATE='||gps.GP_PAIDDATE' PAY_DESC='||gps.GP_PAYDESC
         END
       WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN ''
       ELSE
-        'Can not map plan code'
+        'Can not map plan Module='||gps.ModuleCode||' code AMOUNT='||gps.GP_AMOUNT||' CHQNO='||gps.GP_CHQNO||' PAIDDATE='||gps.GP_PAIDDATE' PAY_DESC='||gps.GP_PAYDESC
   END as WKPLNC_LOG
   ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
   ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
