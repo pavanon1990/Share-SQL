@@ -1,4 +1,4 @@
-Insert into MIG_NC_TPYFILNC_2
+Insert into MIG_NC_TPYFILNC
 select
   dtd.wkpoln as WKREFN
   ,gps.GP_POLNO
@@ -29,3 +29,45 @@ left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBE
 left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
 where dtd.wkpoln is not null
 and clnt_pol.relationship_type != 'LIF2';
+commit;
+
+INSERT INTO MIG_NC_TPYFILNC
+select 
+  dtd.wkpoln as WKREFN
+  ,gps.GP_POLNO
+  ,'ADD' as WKROLE
+  ,'NC' as WKSRCS
+  ,( select substr(polsts,1,2) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKPSTS ----5
+  ,( select t.agcde2 from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKAGNT 
+  ,dtd.wkplnc as WKPLNC
+  ,(select clp.clientid from data_conso.cclient_pol clp where clp.policynumber = gps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM 
+  ,'P' as WKCTYP
+  ,(select t.Idno from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKIDNO  ----- 10
+  ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKTTLN 
+  ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKFSNM 
+  ,'' as WKMDNM
+  ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = gps.GP_POLNO) as WKLSNM 
+  ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
+  ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address2,1,30) ELSE clnt_add.address2 END as WKADD2
+  ,clnt_add.sub_district as WKADD3
+  ,clnt_add.district as WKADD4
+  ,clnt_add.province as WKPROV
+  ,clnt_add.postcode as WKZIPC
+  ,gps.GP_CORE_SYSTEM
+  ,gps.ModuleCode
+  ,'GPS'
+from mig_nc_tpyfdtd dtd
+inner join data_gps gps on 'S'||trim(dtd.wkpayn) = gps.GP_CUSTREFNO
+INNER JOIN (
+  select lnc.wkrefn,trim(lnc.wkorgn) as wkorgn from mig_nc_tpyfilnc lnc where
+      NOT EXISTS(
+        select  nclnc.wkrefn from mig_nc_tpyfilnc nclnc
+        where nclnc.wkrole = 'ADD'
+        and lnc.wkrefn = nclnc.wkrefn )
+  group by lnc.wkrefn,lnc.wkorgn
+) tb on gps.GP_POLNO = tb.wkorgn
+left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+where dtd.wkpoln is not null
+and clnt_pol.relationship_type != 'LIF2';
+commit;
