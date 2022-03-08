@@ -42,7 +42,7 @@ select
           WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is not null THEN gps.pm_plncde
           ELSE (select plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1)
         END
-      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C', 'D', 'L') ) THEN  
+      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C') ) THEN  
         CASE 
           WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN pm_plncde
           ELSE null
