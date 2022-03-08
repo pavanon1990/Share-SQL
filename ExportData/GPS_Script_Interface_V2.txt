@@ -59,6 +59,7 @@ insert into mig_nc_interface
         gps.GP_POLNO,gps.GP_CUSTREFNO,(select a.source from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO and rownum = 1) source,
         CASE 
           WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
+          WHEN gps.org_source is not null THEN gps.POLNBRIL
           ELSE
             CASE 
               WHEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) is not null THEN (select POLNBRIL from data_il.il_t_policy_mig where polnbr = gps.GP_POLNO and rownum = 1) 
@@ -155,38 +156,23 @@ insert into mig_nc_interface
         ,'scblife' as PYWCID
         ,'' as PYWBRF
         ,CASE 
-          WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN tscm.TREV_EFFECTIVE_DATE --TLM
-          WHEN (gps.ModuleCode != 'TCLM' and gps.Source = 'E') THEN (select to_char(bonduedte) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) -- AS400
-          WHEN (gps.ModuleCode = 'TCLM' and gps.source in ('C', 'D', 'L') ) THEN 
+          WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN tscm.TREV_EFFECTIVE_DATE  --TLM CLAM
+          WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
+            THEN (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) 
+          WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN 
             CASE 
               WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is not null THEN (select to_char(risk_event_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1)
               ELSE (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1)
             END
-          WHEN (gps.ModuleCode != 'TCLM' and gps.source in ('C', 'D', 'L') ) THEN  
+          WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C', 'D', 'L') ) THEN  
             CASE 
-              WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join pt_datadet v on v.expfileln = u.draft_no left join cs_poltrack w on w.pol_no = u.upd_polno where (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join pt_datadet v on v.expfileln = u.draft_no left join cs_poltrack w on w.pol_no = u.upd_polno where (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT)
+              WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT)
               ELSE null
             END
-          /*WHEN gps.ModuleCode != 'TCLM' and gps.source = 'C' --and  = 'GPS'*/
+          WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN ''
           ELSE
             null
         END as PYWICD
-        ,CASE 
-          WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN null --TLM
-          WHEN (gps.ModuleCode != 'TCLM' and gps.Source = 'E') THEN null -- AS400
-          WHEN (gps.ModuleCode = 'TCLM' and gps.source in ('C', 'D', 'L') ) THEN 
-            CASE 
-              WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is not null THEN null
-              ELSE null
-            END
-          WHEN (gps.ModuleCode != 'TCLM' and gps.source in ('C', 'D', 'L') ) THEN  
-            CASE 
-              WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join pt_datadet v on v.expfileln = u.draft_no left join cs_poltrack w on w.pol_no = u.upd_polno where (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN null
-              ELSE null
-            END
-          ELSE
-            'Can not mapping incuredate' 
-         END as PYWICD_LOG 
         ,gps.PYWSTYP --50
         ,'Y' as PYWORG
         ,'' as PYWORN --52
