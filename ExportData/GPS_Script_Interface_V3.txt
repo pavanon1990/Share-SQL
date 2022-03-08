@@ -1,4 +1,4 @@
-insert into mig_nc_interface_2
+insert into mig_nc_interface
 select
   CASE 
     WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
