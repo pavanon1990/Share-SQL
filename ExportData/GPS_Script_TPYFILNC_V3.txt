@@ -158,5 +158,5 @@ left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
      and gps.gp_chqno = tscm.chqe_ext_chq_number
      and gps.gp_amount = tscm.chqe_amount
      and gps.gp_paiddate = tscm.paiddate
-left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no;_transaction_event_id) = clmpym.pay_ref_no;
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
 commit
