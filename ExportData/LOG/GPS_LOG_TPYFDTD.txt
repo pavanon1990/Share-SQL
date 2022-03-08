@@ -1,10 +1,46 @@
--- LOG FOR MIG_NC_LOG
---insert into MIG_NC_LOG  -- MIG_NC_TPYFDTD
-select SYS_GUID(),'MIG_NC_TPYFDTD' as FIL_ENAME,t.Core_System,t.Module_Type,gps.gp_polno,gps.gp_custrefno
-,CASE WHEN Module_Type = 'TCLM' THEN 'Data not found PLAN CODE in DATA_CONSO.CLAIM_TRANSACTION' ELSE 'Data not found PLAN CODE in POLMSTPF' END 
+insert into MIG_NC_LOG  -- MIG_NC_TPYFDTD
+select 
+ SYS_GUID(),UPPER('MIG_NC_TPYFDTD') as FILE_NAME,GP_CORE_SYSTEM,tb.ModuleCode,GP_POLNO,GP_CUSTREFNO
+,tb.WKPLNC_LOG
 ,'GPS'
-  from mig_nc_tpyfdtd t
-inner join gps_payment gps on TRIM('S'||t.wkpayn) = gps.gp_custrefno
-where t.wkplnc is null
-
-
+from 
+(
+select
+  gps.GP_CUSTREFNO,gps.GP_POLNO,
+  CASE 
+   WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' THEN  Case when tscm.TREV_EFFECTIVE_DATE is null then 'Data not found plan code in Module = TCLM and GP_CORE_SYSTEM = TLM' END  --TLM CLAM
+      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
+        THEN Case when (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) is null then 'Data not found plan code in Module != TCLM and source = E' END
+      WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN 
+        CASE 
+          WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is not null THEN null
+          ELSE
+            CASE 
+              WHEN (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) is not null THEN null
+              ELSE 'Data not found plan code in Module = TCLM and soucre in (C, D, L, E)'
+            END
+         END
+      WHEN (gps.ModuleCode != 'TCLM' and gps.use_source in ('C', 'D', 'L') ) THEN  
+        CASE 
+          WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN null
+          ELSE 'Data not found plan code in Module != TCLM and source in (C, D, L)'
+        END
+      WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN ''
+      ELSE
+        'Can not map plan code'
+  END as WKPLNC_LOG
+  ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
+  ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
+  ,gps.GP_CORE_SYSTEM
+  ,ModuleCode
+  ,'GPS'
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+gps.modulecode is not null
+) tb
+where tb.WKPLNC_LOG is not null
