@@ -1,0 +1,69 @@
+insert into mig_nc_log_2
+select 
+  SYS_GUID(),UPPER('mig_nc_interface') as FILE_NAME,tb.GP_CORE_SYSTEM,tb.ModuleCode,tb.gp_polno,tb.gp_custrefno,
+  PYWREF_LOG,
+  'GPS'
+FROM(
+select
+  gps.GP_POLNO,gps.GP_CUSTREFNO,gps.ModuleCode,gps.GP_CORE_SYSTEM,
+  CASE 
+    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN null
+    WHEN gps.org_source is not null THEN null
+    ELSE
+      CASE 
+        WHEN gps.POLNBRIL is not null THEN null
+        ELSE
+          CASE  
+            WHEN gps.use_source = 'T' THEN null
+            WHEN gps.use_source = 'E' THEN null -- LOG MORE THEN 8 END
+            WHEN gps.use_source = 'C' THEN null
+            WHEN gps.use_source = 'D' THEN null
+            WHEN gps.use_source = 'L' THEN 
+              CASE 
+                WHEN 
+                  (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
+                WHEN 
+                  (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN null
+                ELSE 
+                  'Data policy is duplicate in 2 digit start 15 or 12 ' || gps.GP_POLNO
+              END
+            ELSE 'data not found payee_name in polmstpf'
+          END
+      END
+  END as PYWREF_LOG
+  ,CASE 
+     WHEN gps.use_source in ('C','D','E','L') THEN
+        CASE
+          WHEN (gps.ModuleCode = 'TCLM' and gps.GP_CORE_SYSTEM = 'TLM') or gps.GP_CORE_SYSTEM = 'TLM' 
+            THEN Case when tscm.TREV_EFFECTIVE_DATE is null then 'Data not found incuredate in Module = TCLM and GP_CORE_SYSTEM = TLM' END  --TLM CLAM
+          WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN  -- clam : as400,cl,csdm,tclm
+            CASE 
+              WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and clm_type = 'DEAD' and rownum = 1) is null 
+                THEN 'Data not found incuredate in Module = TCLM and soucre in (C, D, L, E) clm_type is DEAD'
+             ELSE
+               CASE WHEN (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1) is null THEN 'Data not found incuredate in Module = TCLM and soucre in (C, D, L, E)' END
+            END
+          WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
+            THEN Case when (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) is null then 'Data not found incuredate in Module != TCLM and source = E' END
+          WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'C' ) THEN  
+            CASE 
+              WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is null 
+                THEN 'Data not found incuredate in Module != TCLM and soucre = C '
+            END
+          WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN ''
+          ELSE
+            null
+        END
+     ELSE
+       null
+  END as PYWICD_LOG
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate 
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+ gps.modulecode is not null
+ ) tb
+where tb.PYWREF_LOG is not null
