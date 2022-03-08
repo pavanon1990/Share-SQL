@@ -31,7 +31,7 @@ where dtd.wkpoln is not null
 and clnt_pol.relationship_type != 'LIF2';
 commit;
 
-INSERT INTO MIG_NC_TPYFILNC
+INSERT INTO mig_nc_tpyfilnc
 select 
   dtd.wkpoln as WKREFN
   ,gps.GP_POLNO
@@ -57,17 +57,19 @@ select
   ,gps.ModuleCode
   ,'GPS'
 from mig_nc_tpyfdtd dtd
-inner join data_gps gps on 'S'||trim(dtd.wkpayn) = gps.GP_CUSTREFNO
 INNER JOIN (
-  select lnc.wkrefn,trim(lnc.wkorgn) as wkorgn from mig_nc_tpyfilnc lnc where
+  select trim(lnc.wkrefn) as wkrefn ,trim(lnc.wkorgn) as wkorgn from mig_nc_tpyfilnc lnc where
       NOT EXISTS(
         select  nclnc.wkrefn from mig_nc_tpyfilnc nclnc
         where nclnc.wkrole = 'ADD'
         and lnc.wkrefn = nclnc.wkrefn )
   group by lnc.wkrefn,lnc.wkorgn
-) tb on gps.GP_POLNO = tb.wkorgn
-left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+) tb on tb.wkrefn = trim(dtd.wkpoln)
+left join data_conso.cclient_pol clnt_pol on tb.wkorgn = clnt_pol.POLICYNUMBER and clnt_pol.relationship_type = 'OWNR'
 left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+inner join data_gps gps on 'S'||trim(dtd.wkpayn) = gps.GP_CUSTREFNO
 where dtd.wkpoln is not null
+and gps.ModuleCode is not null
 and clnt_pol.relationship_type != 'LIF2';
+
 commit;
