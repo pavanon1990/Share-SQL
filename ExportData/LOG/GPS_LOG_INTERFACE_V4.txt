@@ -1,3 +1,4 @@
+insert into mig_nc_log
 select 
   SYS_GUID(),UPPER('mig_nc_interface') as FILE_NAME,tb.GP_CORE_SYSTEM,tb.ModuleCode,tb.gp_polno,tb.gp_custrefno,
   PYWREF_LOG,
@@ -55,7 +56,7 @@ select
               WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN ''
            END 
         ELSE
-           null 'INVALID SOURCE : ' || gps.use_source
+           'INVALID SOURCE : ' || gps.use_source
       END
    ELSE
       NULL
