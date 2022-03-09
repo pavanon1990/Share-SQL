@@ -25,7 +25,7 @@ select
   ,'GPS'
 from mig_nc_tpyfdtd dtd
 inner join data_gps gps on 'S'||trim(dtd.wkpayn) = gps.GP_CUSTREFNO
-left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER
+left join data_conso.cclient_pol clnt_pol on gps.GP_POLNO = clnt_pol.POLICYNUMBER and clnt_pol.recordstatus = 1
 left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
 where dtd.wkpoln is not null
 and clnt_pol.relationship_type != 'LIF2';
@@ -65,8 +65,8 @@ INNER JOIN (
         and lnc.wkrefn = nclnc.wkrefn )
   group by lnc.wkrefn,lnc.wkorgn
 ) tb on tb.wkrefn = trim(dtd.wkpoln)
-left join data_conso.cclient_pol clnt_pol on tb.wkorgn = clnt_pol.POLICYNUMBER and clnt_pol.relationship_type = 'OWNR'
-left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+left join data_conso.cclient_pol clnt_pol on tb.wkorgn = clnt_pol.POLICYNUMBER and clnt_pol.relationship_type = 'OWNR' and clnt_pol.recordstatus = 1
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid 
 inner join data_gps gps on 'S'||trim(dtd.wkpayn) = gps.GP_CUSTREFNO
 where dtd.wkpoln is not null
 and gps.ModuleCode is not null
