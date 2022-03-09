@@ -1,4 +1,3 @@
---truncate table mig_nc_interface;
 insert into mig_nc_interface
 select
   CASE 
