@@ -102,8 +102,8 @@ select
   ,CASE 
       WHEN (gps.PYWSTYP) = 'CCP' and gps.GP_PAYMTH = 'C' and gps.GP_SUB_PAYMTH = 'C' 
         THEN 
-          CASE WHEN ((to_number(gps.GP_CHQNO) between 2035301 and 2235300 or to_number(gps.GP_CHQNO) between 5000001 and 5140000 or to_number(gps.GP_CHQNO) between 10000001 and 10070000)) THEN 'MCP'
-          ELSE gps.PYWSTYP
+          CASE WHEN ((to_number(gps.GP_CHQNO) between 2035301 and 2235300 or to_number(gps.GP_CHQNO) between 5000001 and 5140000 or to_number(gps.GP_CHQNO) between 10000001 and 10070000)) THEN gps.PYWSTYP
+          ELSE 'MCP'
           END
       ELSE
         gps.PYWSTYP
