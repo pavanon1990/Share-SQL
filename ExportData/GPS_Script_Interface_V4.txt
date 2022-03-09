@@ -75,28 +75,31 @@ select
   ,'scblife' as PYWCID
   ,'' as PYWBRF
   ,CASE 
-     WHEN (gps.GP_CORE_SYSTEM = 'TLM') THEN tscm.TREV_EFFECTIVE_DATE  --TLM CLAM & POST
-     WHEN gps.use_source in ('C','D','E','L') THEN
-        CASE
-          WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN  -- clam : as400,cl,csdm,tclm
-            CASE 
-              WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and clm_type = 'DEAD' and rownum = 1) is not null 
-                THEN (select to_char(risk_event_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and clm_type = 'DEAD' and rownum = 1)
-              ELSE (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and rownum = 1)
-            END
-          WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
-            THEN (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) 
-          WHEN (gps.ModuleCode != 'TCLM'  and gps.use_source = 'C' ) THEN  -- CS POST
-            CASE 
-              WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT)
-              ELSE null
-            END
-          WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN '' -- Direct,CL POST
-          ELSE
-            null
-        END
+     WHEN gps.GP_POLNO is not null and gps.use_source is not null THEN
+       CASE
+       WHEN (gps.GP_CORE_SYSTEM = 'TLM') THEN tscm.TREV_EFFECTIVE_DATE  --TLM CLAM & POST
+       WHEN gps.use_source in ('C','D','E','L') THEN
+          CASE
+            WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN  -- clam : as400,cl,csdm,tclm
+              CASE 
+                WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and clm_type = 'DEAD' and rownum = 1) is not null 
+                  THEN (select to_char(risk_event_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and clm_type = 'DEAD' and rownum = 1)
+                ELSE (select to_char(decision_dte - 5430000) from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and rownum = 1)
+              END
+            WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
+              THEN (select to_char(bonduedte - 5430000) from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) 
+            WHEN (gps.ModuleCode != 'TCLM'  and gps.use_source = 'C' ) THEN  -- CS POST
+              CASE 
+                WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null THEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT)
+                ELSE null
+              END
+            WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN '' -- Direct,CL POST
+            ELSE
+              null -- INVALID SOUCRE
+          END
+       END
      ELSE
-       null
+       null -- POLICY IS NULL LOG ALREADY IN PYWREF
   END as PYWICD
   
   ,CASE 
