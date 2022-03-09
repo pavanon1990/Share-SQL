@@ -1,8 +1,8 @@
 insert into mig_nc_log
 select 
   SYS_GUID(),UPPER('mig_nc_interface') as FILE_NAME,tb.GP_CORE_SYSTEM,tb.ModuleCode,tb.gp_polno,tb.gp_custrefno,
-  PYWREF_LOG,
-  --PYWICD_LOG,
+  --PYWREF_LOG,
+  PYWICD_LOG,
   'GPS'
 FROM(
 select
@@ -69,5 +69,5 @@ left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
 where
  gps.modulecode is not null
  ) tb
-where tb.PYWREF_LOG is not null
---where tb.PYWICD_LOG is not null
+--where tb.PYWREF_LOG is not null
+where tb.PYWICD_LOG is not null
