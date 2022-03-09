@@ -1,0 +1,76 @@
+INSERT INTO MIG_NC_TPYFDTD
+
+select
+  SUBSTR(gps.GP_CUSTREFNO,2,LENGTH(gps.gp_custrefno)) as WKPAYN 
+  ,CASE 
+    WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
+    WHEN gps.org_source is not null THEN gps.POLNBRIL
+    ELSE
+      CASE 
+        WHEN gps.POLNBRIL is not null THEN gps.POLNBRIL
+        ELSE
+          CASE  
+            WHEN gps.use_source = 'T' THEN '3'||SUBSTR(gp_polno,6,LENGTH(gp_polno))
+            WHEN gps.use_source = 'E' THEN CASE WHEN length(gps.GP_POLNO) = 8 THEN gps.GP_POLNO ELSE lpad(gps.GP_POLNO,8,'0') END 
+            WHEN gps.use_source = 'C' THEN '2'||SUBSTR(gp_polno,1,2)
+            WHEN gps.use_source = 'D' THEN (SELECT  PREFIX||SUBSTR(gps.GP_POLNO,11,5) from mig_dm_pol_no_prefix where DM_INDEX = SUBSTR(gps.GP_POLNO,1,9))
+            WHEN gps.use_source = 'L' THEN 
+              CASE 
+                WHEN 
+                  (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                WHEN 
+                  (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)) = 0 THEN (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = gps.GP_POLNO)
+                ELSE 
+                  gps.GP_POLNO -- LOG Data dupilcate from data_il.il_t_policy_mig
+              END
+            ELSE gps.GP_POLNO -- data not found payee_name in polmstpf
+          END
+      END
+  END as WKPOLN
+  ,CASE 
+     WHEN gps.GP_POLNO is not null and gps.use_source is not null THEN
+       CASE 
+       WHEN (gps.GP_CORE_SYSTEM = 'TLM' and gps.ModuleCode = 'TCLM') THEN (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and cltr.clm_no like ''||clmpym.clm_no||'%' and rownum = 1)
+       WHEN (gps.GP_CORE_SYSTEM = 'TLM' and gps.ModuleCode != 'TCLM') then gps.plncde
+       WHEN gps.use_source in ('C','D','E','L') THEN
+          CASE
+            WHEN (gps.ModuleCode = 'TCLM' and gps.use_source in ('C', 'D', 'L', 'E') ) THEN  -- clam : as400,cl,csdm,tclm
+              CASE 
+                WHEN (select clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and clm_type = 'DEAD' and rownum = 1) is not null 
+                  THEN gps.plncde --DEAD
+                ELSE  
+                  CASE -- NOT DEAD
+                    WHEN (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and rownum = 1) is not null --if plncde not null
+                      THEN (select cltr.plncde from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and rownum = 1) -- let plncde
+                      ELSE (select cltr.clm_type from data_conso.claim_transaction cltr where cltr.pol_no = gps.GP_POLNO and (cltr.payment_dte -5430000) = gps.GP_PAIDDATE and rownum = 1) -- else let clm_type
+                  END
+              END
+            WHEN (gps.ModuleCode != 'TCLM' and gps.use_source = 'E')  -- AS400 POST
+              THEN (select plncde from as400bnh where as400bnh.polnbr = gps.GP_POLNO and as400bnh.chqnbr = gps.GP_CHQNO and as400bnh.bonval = gps.GP_AMOUNT) 
+            WHEN (gps.ModuleCode != 'TCLM'  and gps.use_source = 'C' ) THEN  -- CS POST
+              CASE 
+                WHEN (select to_char(w.pos_eff-5430000) from mig_bank_info u left join cs_poltrack w on w.pol_no = u.upd_polno where gps.GP_POLNO = w.pol_no and (paid_refd-5430000) = gps.GP_PAIDDATE and ref_no = gps.GP_CHQNO and bal_amt = gps.GP_AMOUNT) is not null 
+                  THEN gps.plncde
+              END
+            WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN '' -- Direct,CL POST
+          END
+       ELSE
+          null -- INVALID SOUCRE
+       END
+     ELSE
+       null -- POLICY IS NULL LOG ALREADY IN PYWREF
+  END as WKPLNC
+  
+  ,to_char(gps.gp_amount, 'fm99999999999999.90') as WKPAMT
+  ,CASE  WHEN gps.gp_payee_name like '%โรงพยาบาล%' THEN 'C' else 'P' end as WKPTYP --5
+  ,gps.GP_CORE_SYSTEM
+  ,ModuleCode
+  ,'GPS'
+from data_gps gps
+left join Data_tscm tscm on gps.GP_POLNO = tscm.aclk_account_number
+     and gps.gp_chqno = tscm.chqe_ext_chq_number
+     and gps.gp_amount = tscm.chqe_amount
+     and gps.gp_paiddate = tscm.paiddate
+left join (select clm_no,pay_ref_no from data_conso.claim_payment group by clm_no,pay_ref_no) clmpym on to_char(tscm.actr_transaction_event_id) = clmpym.pay_ref_no
+where
+gps.modulecode is not null
