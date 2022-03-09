@@ -1,3 +1,4 @@
+--truncate table mig_nc_interface
 insert into mig_nc_interface
 select
   CASE 
@@ -94,9 +95,9 @@ select
                 ELSE null
               END
             WHEN gps.ModuleCode != 'TCLM' and gps.use_source in ('D','L') THEN '' -- Direct,CL POST
-            ELSE
-              null -- INVALID SOUCRE
           END
+       ELSE
+          null -- INVALID SOUCRE
        END
      ELSE
        null -- POLICY IS NULL LOG ALREADY IN PYWREF
