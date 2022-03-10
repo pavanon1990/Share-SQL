@@ -131,7 +131,7 @@ select
         CASE
           WHEN  il.polnbr is not null THEN 
             CASE
-              WHEN (il.org_source) = 'T' THEN '3'||SUBSTR(t_gps.GP_POLNO,6,LENGTH(pm_pol.polnbr))
+              WHEN (il.org_source) = 'T' THEN '3'||SUBSTR(pm_pol.polnbr,6,LENGTH(pm_pol.polnbr))
               ELSE il.polnbr
             END 
           ELSE
