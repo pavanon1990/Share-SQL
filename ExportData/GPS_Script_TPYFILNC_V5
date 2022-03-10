@@ -1,0 +1,138 @@
+--INSERT INTO mig_nc_tpyfilnc
+select  
+   CASE 
+      WHEN (select g.ModuleCode from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) = 'TCLM' and ((select g.GP_PAYEE_NAME from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) like '%โรงพยาบาล%' or (select g.GP_PAYEE_NAME from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) like '%ร.พ.%')
+        THEN (select substr(g.GP_CUSTREFNO,2,15) from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO)
+      ELSE
+        CASE 
+          WHEN  (select il.polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) is not null THEN --(select polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) THEN
+            CASE
+              WHEN (select il.org_source from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) = 'T' THEN '3'||SUBSTR(t_gps.GP_POLNO,6,LENGTH(t_gps.GP_POLNO))
+              ELSE (select polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO)
+            END 
+          ELSE 
+            CASE  
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'T' THEN '3'||SUBSTR(t_gps.GP_POLNO,6,LENGTH(t_gps.GP_POLNO))
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'E' THEN CASE WHEN length(t_gps.GP_POLNO) = 8 THEN t_gps.GP_POLNO ELSE  t_gps.GP_POLNO END 
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'C' THEN '2'||SUBSTR(t_gps.GP_POLNO,1,2)
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'D' THEN (SELECT  PREFIX||SUBSTR(t_gps.GP_POLNO,11,5) from mig_dm_pol_no_prefix where DM_INDEX = SUBSTR(t_gps.GP_POLNO,1,9))
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'L' THEN 
+                CASE 
+                  WHEN 
+                    (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)) = 0 THEN (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)
+                  WHEN 
+                    (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)) = 0 THEN (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)
+                  ELSE 
+                    t_gps.GP_POLNO -- LOG Data dupilcate from data_il.il_t_policy_mig
+                END
+              ELSE t_gps.GP_POLNO --LOG data not found
+            END
+        END
+    END as WKREFN
+    ,t_gps.GP_POLNO as WKORGN 
+    --,(select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) as pm_Source
+    ,nc_tpyfilnc_policy_status(clnt_pol.relationship_type) as WKROLE
+   ,'NC' as WKSRCS
+   ,( select substr(polsts,1,2) from polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKPSTS ----5
+   ,( select t.agcde2 from polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKAGNT 
+   ,(select pm.plncde from polmstpf pm where pm.polnbr = t_gps.GP_POLNO ) 
+   
+   as PLNCD
+   ,(select clp.clientid from data_conso.cclient_pol clp where clp.policynumber = t_gps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM 
+    ,'P' as WKCTYP
+    ,(select t.Idno from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKIDNO  ----- 10
+    ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKTTLN 
+    ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKFSNM 
+    ,'' as WKMDNM
+    ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKLSNM 
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END ELSE '' END as WKADD1  --15
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address2,1,30) ELSE clnt_add.address2 END ELSE '' END as WKADD2
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.sub_district ELSE '' END as WKADD3
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.district ELSE '' END as WKADD4
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.province ELSE '' END as WKPROV
+    ,CASE WHEN clnt_pol.relationship_type = 'DESA' THEN clnt_add.postcode ELSE '' END as WKZIPC
+    ,(select g.GP_CORE_SYSTEM from data_gps_inscope g where g.GP_POLNO = t_gps.GP_POLNO and rownum = 1)
+    ,(select g.ModuleCode from data_gps_inscope g where g.GP_POLNO = t_gps.GP_POLNO and rownum = 1) 
+    ,'GPS'
+from( --7648
+select gps.GP_POLNO from data_gps_inscope gps
+where gps.modulecode is not null --and gps.GP_POLNO is not null
+GROUP By gps.GP_POLNO
+) t_gps
+left join data_conso.cclient_pol clnt_pol on t_gps.GP_POLNO = clnt_pol.POLICYNUMBER and clnt_pol.recordstatus = 1 and clnt_pol.relationship_type != 'LIF2'
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+where clnt_pol.clientaddressid is not null;
+
+INSERT INTO mig_nc_tpyfilnc
+select 
+CASE 
+      WHEN (select g.ModuleCode from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) = 'TCLM' and ((select g.GP_PAYEE_NAME from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) like '%โรงพยาบาล%' or (select g.GP_PAYEE_NAME from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO) like '%ร.พ.%')
+        THEN (select substr(g.GP_CUSTREFNO,2,15) from data_gps_inscope g where rownum = 1 and g.GP_POLNO = t_gps.GP_POLNO)
+      ELSE
+        CASE 
+          WHEN  (select il.polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) is not null THEN --(select polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) THEN
+            CASE
+              WHEN (select il.org_source from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO) = 'T' THEN '3'||SUBSTR(t_gps.GP_POLNO,6,LENGTH(t_gps.GP_POLNO))
+              ELSE (select polnbr from data_il.il_t_policy_mig il where il.polnbr = t_gps.GP_POLNO)
+            END 
+          ELSE 
+            CASE  
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'T' THEN '3'||SUBSTR(t_gps.GP_POLNO,6,LENGTH(t_gps.GP_POLNO))
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'E' THEN CASE WHEN length(t_gps.GP_POLNO) = 8 THEN t_gps.GP_POLNO ELSE  t_gps.GP_POLNO END 
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'C' THEN '2'||SUBSTR(t_gps.GP_POLNO,1,2)
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'D' THEN (SELECT  PREFIX||SUBSTR(t_gps.GP_POLNO,11,5) from mig_dm_pol_no_prefix where DM_INDEX = SUBSTR(t_gps.GP_POLNO,1,9))
+              WHEN (select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) = 'L' THEN 
+                CASE 
+                  WHEN 
+                    (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)) = 0 THEN (select '15'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)
+                  WHEN 
+                    (select count(POLNBRIL) from data_il.il_t_policy_mig where POLNBRIL = (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)) = 0 THEN (select '16'||a.polnbr from data_conso.polmstpf a where a.polnbr = t_gps.GP_POLNO)
+                  ELSE 
+                    t_gps.GP_POLNO -- LOG Data dupilcate from data_il.il_t_policy_mig
+                END
+              ELSE t_gps.GP_POLNO --LOG data not found
+            END
+        END
+    END as WKREFN
+    ,t_gps.GP_POLNO as WKORGN 
+    --,(select pm.source from polmstpf pm where pm.polnbr = t_gps.GP_POLNO) as pm_Source
+   ,'ADD' as WKROLE
+   ,'NC' as WKSRCS
+   ,( select substr(polsts,1,2) from polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKPSTS ----5
+   ,( select t.agcde2 from polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKAGNT 
+   ,(select pm.plncde from polmstpf pm where pm.polnbr = t_gps.GP_POLNO ) 
+   
+   as PLNCD
+   ,(select clp.clientid from data_conso.cclient_pol clp where clp.policynumber = t_gps.GP_POLNO and clp.relationship_type = 'OWNR' and rownum = 1 ) as WKCNUM 
+    ,'P' as WKCTYP
+    ,(select t.Idno from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKIDNO  ----- 10
+    ,(select substr(t.ttlnme,0,9) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKTTLN 
+    ,(select substr(t.INSFST,0,30) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKFSNM 
+    ,'' as WKMDNM
+    ,(select substr(t.INSLST,0,30) from data_conso.polmstpf  t where POLNBR = t_gps.GP_POLNO) as WKLSNM 
+    ,CASE WHEN length(clnt_add.address1) > 30  THEN substr(clnt_add.address1,1,30) ELSE clnt_add.address1 END as WKADD1 --15
+    ,CASE WHEN length(clnt_add.address2) > 30  THEN substr(clnt_add.address2,1,30) ELSE clnt_add.address2 END as WKADD2
+    ,clnt_add.sub_district as WKADD3
+    ,clnt_add.district as WKADD4
+    ,clnt_add.province as WKPROV
+    ,clnt_add.postcode as WKZIPC
+    ,(select g.GP_CORE_SYSTEM from data_gps_inscope g where g.GP_POLNO = t_gps.GP_POLNO and rownum = 1)
+    ,(select g.ModuleCode from data_gps_inscope g where g.GP_POLNO = t_gps.GP_POLNO and rownum = 1) 
+    ,'GPS'
+from( --7648
+  select gps.GP_POLNO from data_gps_inscope gps
+  where gps.modulecode is not null --and gps.GP_POLNO is not null
+  GROUP By gps.GP_POLNO
+) t_gps
+INNER JOIN (
+  select lnc.wkrefn,trim(lnc.wkorgn) as wkorgn from mig_nc_tpyfilnc lnc where
+      NOT EXISTS(
+        select  nclnc.wkrefn from mig_nc_tpyfilnc nclnc
+        where nclnc.wkrole = 'ADD'
+        and lnc.wkrefn = nclnc.wkrefn )
+  group by lnc.wkrefn,lnc.wkorgn
+) tb on t_gps.GP_POLNO = tb.wkorgn
+
+left join data_conso.cclient_pol clnt_pol on t_gps.GP_POLNO = clnt_pol.POLICYNUMBER and clnt_pol.recordstatus = 1 and clnt_pol.relationship_type = 'OWNR'
+left join data_conso.clientaddress clnt_add on clnt_pol.clientaddressid = clnt_add.clientaddressid
+where clnt_pol.clientaddressid is not null;
