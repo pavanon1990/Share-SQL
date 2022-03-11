@@ -21,7 +21,6 @@ left join polmstpf pom on gps.GP_PAYEE_NAME = trim(pom.ttlnme||pom.insfst||' '||
 select
    substr(gps.GP_CUSTREFNO,2,15) as WKPAYN,
    CASE 
-     WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
      WHEN il.org_source is not null THEN il.polnbril
      ELSE --POLMSTPF
        CASE 
@@ -117,7 +116,6 @@ left join polmstpf pom on gps.GP_PAYEE_NAME = trim(pom.ttlnme||pom.insfst||' '||
 select
    substr(gps.GP_CUSTREFNO,2,15) as WKPAYN,
    CASE 
-     WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
      WHEN il.org_source is not null THEN il.polnbril
      ELSE --POLMSTPF
        CASE 
@@ -214,7 +212,6 @@ left join polmstpf pom on gps.GP_PAYEE_NAME = trim(pom.ttlnme||pom.insfst||' '||
 select
    substr(gps.GP_CUSTREFNO,2,15) as WKPAYN,
    CASE 
-     WHEN gps.ModuleCode = 'TCLM' and (gps.GP_PAYEE_NAME like '%โรงพยาบาล%' or gps.GP_PAYEE_NAME like '%ร.พ.%') THEN substr(gps.GP_CUSTREFNO,2,15)
      WHEN il.org_source is not null THEN il.polnbril
      ELSE --POLMSTPF
        CASE 
